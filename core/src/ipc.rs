@@ -167,11 +167,7 @@ impl<W: Write> ServerWriter<W> {
         })
     }
 
-    pub fn observer_status(
-        &mut self,
-        agent: AgentKind,
-        status: &'static str,
-    ) -> io::Result<()> {
+    pub fn observer_status(&mut self, agent: AgentKind, status: &'static str) -> io::Result<()> {
         let seq = self.next_seq();
         self.write(ServerMessage::ObserverStatus {
             v: PROTOCOL_VERSION,
