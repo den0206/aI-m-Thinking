@@ -24,7 +24,7 @@ mod platform {
 
         let data = CFData::from_buffer(&bytes);
         let mut stale = 0_u8;
-        let mut error = ptr::null();
+        let mut error = ptr::null_mut();
 
         let raw_url = unsafe {
             CFURLCreateByResolvingBookmarkData(
