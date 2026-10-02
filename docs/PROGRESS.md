@@ -23,7 +23,7 @@ During initial development, work is committed directly to `main`. Commits are gr
 
 Normal `claude` and `codex` usage passively feeds the observer/parser/activity/IPC/audio pipeline without altering agent or shell configuration.
 
-## Phase 7 — CI implementation
+## Phase 7 — Implementation complete
 
 Hardening and packaging added:
 
@@ -57,4 +57,17 @@ These cannot be fully validated in GitHub CI and should be completed on a develo
 11. Force-quit I'm Thinking while Claude/Codex are active and confirm both agents are unaffected.
 12. Inspect Claude/Codex settings before/after and confirm no changes were made.
 
-Until those device tests pass, Phase 7 is intentionally not marked fully release-ready.
+### CI validation
+
+Latest validation on `main`:
+
+- Core: `cargo fmt --check` — passed
+- Core: `cargo test` — passed
+- Core: `cargo clippy --all-targets -- -D warnings` — passed
+- App: `swift build` — passed
+- App: `swift test` — passed
+- App bundle construction — passed
+- Bundled Swift/Rust executables — verified
+- `Info.plist` validation — passed
+
+Until the device tests above pass, the implementation is complete but v1 is intentionally not marked release-ready.
