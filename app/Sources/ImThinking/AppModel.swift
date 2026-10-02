@@ -10,8 +10,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var volume: Double
     @Published private(set) var muted: Bool
     @Published private(set) var startAtLogin: Bool
+    @Published private(set) var claudeFolderAuthorized = false
+    @Published private(set) var codexFolderAuthorized = false
 
-    private let bridge = CoreBridge()
+    let distributionMode: DistributionMode
+
+    private let bridge: CoreBridge
+    private let sandboxProvider: SandboxAgentRootProvider?
     private let audio: KeyboardAudioEngine
     private let scheduler: TypingScheduler
     private var activities: [UInt32: ActivityState] = [:]
@@ -24,6 +29,23 @@ final class AppModel: ObservableObject {
         let storedVolume = defaults.object(forKey: "volume") as? Double
         let initialVolume = max(0.0, min(1.0, storedVolume ?? 0.55))
         let initialMuted = defaults.bool(forKey: "muted")
+        let mode = DistributionMode.current
+
+        let rootProvider: any AgentRootProviding
+        let sandboxProvider: SandboxAgentRootProvider?
+        switch mode {
+        case .direct:
+            rootProvider = DirectAgentRootProvider()
+            sandboxProvider = nil
+        case .appStore:
+            let provider = SandboxAgentRootProvider(defaults: defaults)
+            rootProvider = provider
+            sandboxProvider = provider
+        }
+
+        distributionMode = mode
+        self.sandboxProvider = sandboxProvider
+        bridge = CoreBridge(rootProvider: rootProvider)
 
         soundPack = initialPack
         volume = initialVolume
@@ -35,6 +57,8 @@ final class AppModel: ObservableObject {
         audio.muted = initialMuted
         self.audio = audio
         scheduler = TypingScheduler(audio: audio)
+
+        refreshAuthorizationState()
 
         bridge.onStatus = { [weak self] status in
             self?.coreStatus = status
@@ -56,6 +80,24 @@ final class AppModel: ObservableObject {
 
     deinit {
         wakeTask?.cancel()
+    }
+
+    var requiresFolderAuthorization: Bool {
+        distributionMode == .appStore
+    }
+
+    func authorizeFolder(for service: AgentService) {
+        guard let sandboxProvider, sandboxProvider.chooseRoot(for: service) else {
+            return
+        }
+        refreshAuthorizationState()
+        restartCore()
+    }
+
+    func revokeFolder(for service: AgentService) {
+        sandboxProvider?.revoke(service)
+        refreshAuthorizationState()
+        restartCore()
     }
 
     func restartCore() {
@@ -108,6 +150,11 @@ final class AppModel: ObservableObject {
 
     func previewSound() {
         audio.preview()
+    }
+
+    private func refreshAuthorizationState() {
+        claudeFolderAuthorized = sandboxProvider?.isAuthorized(.claude) ?? true
+        codexFolderAuthorized = sandboxProvider?.isAuthorized(.codex) ?? true
     }
 
     private func handle(_ message: CoreMessage) {
