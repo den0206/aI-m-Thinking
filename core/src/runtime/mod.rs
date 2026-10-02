@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use crate::activity::ActivityEngine;
 use crate::events::{AgentState, NormalizedEvent, ToolClass};
-use crate::ipc::{AgentFlags, AgentKind, ServerWriter};
+use crate::ipc::{AgentFlags, AgentKind, AgentRoots, ServerWriter};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
 use crate::parsers::{ClaudeParser, CodexParser};
@@ -46,13 +46,17 @@ impl MonitorHandle {
     }
 }
 
-pub fn spawn_monitor<W>(writer: Arc<Mutex<ServerWriter<W>>>, flags: AgentFlags) -> MonitorHandle
+pub fn spawn_monitor<W>(
+    writer: Arc<Mutex<ServerWriter<W>>>,
+    flags: AgentFlags,
+    roots: AgentRoots,
+) -> MonitorHandle
 where
     W: io::Write + Send + 'static,
 {
     let (command_tx, command_rx) = mpsc::channel();
     let join = thread::spawn(move || {
-        let mut runtime = MonitorRuntime::new(writer, flags);
+        let mut runtime = MonitorRuntime::new(writer, flags, roots);
         runtime.run(command_rx);
     });
 
@@ -128,28 +132,26 @@ struct MonitorRuntime<W: io::Write + Send + 'static> {
 }
 
 impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
-    fn new(writer: Arc<Mutex<ServerWriter<W>>>, flags: AgentFlags) -> Self {
+    fn new(writer: Arc<Mutex<ServerWriter<W>>>, flags: AgentFlags, roots: AgentRoots) -> Self {
         let (event_tx, event_rx) = mpsc::channel();
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
+        let mut configured_roots = Vec::with_capacity(roots.claude.len() + roots.codex.len());
+
+        configured_roots.extend(roots.claude.into_iter().map(|path| AgentRoot {
+            kind: AgentKind::Claude,
+            path: PathBuf::from(path),
+            enabled: flags.claude,
+            watcher: None,
+        }));
+        configured_roots.extend(roots.codex.into_iter().map(|path| AgentRoot {
+            kind: AgentKind::Codex,
+            path: PathBuf::from(path),
+            enabled: flags.codex,
+            watcher: None,
+        }));
 
         Self {
             writer,
-            roots: vec![
-                AgentRoot {
-                    kind: AgentKind::Claude,
-                    path: home.join(".claude/projects"),
-                    enabled: flags.claude,
-                    watcher: None,
-                },
-                AgentRoot {
-                    kind: AgentKind::Codex,
-                    path: home.join(".codex/sessions"),
-                    enabled: flags.codex,
-                    watcher: None,
-                },
-            ],
+            roots: configured_roots,
             baselines: HashMap::new(),
             sessions: HashMap::new(),
             event_tx,
