@@ -10,9 +10,9 @@ use crate::activity::ActivityEngine;
 use crate::events::{AgentState, NormalizedEvent, ToolClass};
 use crate::ipc::{AgentFlags, AgentKind, AgentRoots, RootGrant, ServerWriter};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
-use crate::sandbox::{ScopedRoot, resolve_transfer_bookmark};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
 use crate::parsers::{ClaudeParser, CodexParser};
+use crate::sandbox::{ScopedRoot, resolve_transfer_bookmark};
 
 const MAX_ACTIVE_SESSIONS: usize = 64;
 const MAX_BASELINES_PER_AGENT: usize = 128;
