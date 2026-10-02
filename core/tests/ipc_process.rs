@@ -31,6 +31,7 @@ fn core_handshake_ping_and_shutdown() {
 
     writeln!(
         stdin,
+        "{}",
         r#"{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}"#
     )
     .unwrap();
@@ -39,7 +40,7 @@ fn core_handshake_ping_and_shutdown() {
     let ready = read_json(&mut stdout);
     assert_eq!(ready["type"], "ready");
 
-    writeln!(stdin, r#"{"v":1,"type":"ping","id":42}"#).unwrap();
+    writeln!(stdin, "{}", r#"{"v":1,"type":"ping","id":42}"#).unwrap();
     stdin.flush().unwrap();
 
     let mut saw_pong = false;
@@ -53,7 +54,7 @@ fn core_handshake_ping_and_shutdown() {
     }
     assert!(saw_pong);
 
-    writeln!(stdin, r#"{"v":1,"type":"shutdown"}"#).unwrap();
+    writeln!(stdin, "{}", r#"{"v":1,"type":"shutdown"}"#).unwrap();
     stdin.flush().unwrap();
     drop(stdin);
 
