@@ -30,6 +30,14 @@ pub struct AgentFlags {
     pub codex: bool,
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct AgentRoots {
+    #[serde(default)]
+    pub claude: Vec<String>,
+    #[serde(default)]
+    pub codex: Vec<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientCommand {
@@ -37,7 +45,7 @@ pub enum ClientCommand {
         v: u8,
         agents: AgentFlags,
         #[serde(default)]
-        extra_roots: Vec<String>,
+        roots: AgentRoots,
     },
     SetAgentEnabled {
         v: u8,
