@@ -72,6 +72,46 @@ The release workflow is implemented but has not been exercised with a real `vX.Y
 
 Latest distribution/development CI: `37017158952` — Swift build/tests, Debug app bundle, Release app bundle, bundle validation, and test DMG packaging all passed.
 
+## Mac App Store readiness — Architecture implemented
+
+The Mac App Store path is now separated from direct distribution without changing the zero-setup direct UX.
+
+Implemented:
+
+- Rust Core no longer derives Claude/Codex roots from `HOME`
+- IPC `configure.roots` accepts bounded path or bookmark grants
+- maximum configured roots: 4 per agent
+- Direct distribution supplies explicit path grants from Swift
+- App Store mode uses `SandboxAgentRootProvider`
+- Claude/Codex folders are selected explicitly with `NSOpenPanel`
+- persistent read-only security-scoped bookmarks are stored in the app container
+- stale persistent bookmarks are refreshed
+- a transfer bookmark is handed to the Rust child instead of relying on dynamic sandbox inheritance
+- Rust resolves the transfer bookmark with Core Foundation and keeps the security scope for the monitor lifetime
+- main App Store entitlement set is App Sandbox + user-selected read-only + app-scoped bookmarks
+- Rust helper entitlement set is App Sandbox + inherit only
+- PrivacyInfo.xcprivacy declares no tracking/data collection and the UserDefaults required-reason API usage
+- `appstore-smoke` CI bundle validates packaging, Privacy Manifest presence, and the signed entitlement split
+- Review Notes draft, risk register, and submission checklist are documented in `docs/APP_STORE.md`
+
+Validated Core CI:
+
+- run `37022393931`: format, tests, and Clippy passed with the explicit root-grant IPC schema.
+
+Validated App Store smoke steps:
+
+- run `37022875951`: Swift build/tests, Debug bundle, App Store smoke build, sandbox entitlement verification, Privacy Manifest verification, and Direct release bundle verification passed. The same run's final DMG smoke is independent of the App Store sandbox path.
+
+Remaining before an actual App Store submission:
+
+1. Real sandboxed device test for Swift -> Rust bookmark handoff and recursive session monitoring.
+2. Add a real Xcode macOS App target / Product Archive path; the hand-built `appstore-smoke` bundle is intentionally not a submission artifact.
+3. Configure the final registered App ID and App Store distribution signing.
+4. Validate/upload an Archive to App Store Connect / TestFlight.
+5. Reconcile final Xcode privacy report with App Store Connect privacy answers.
+6. Provide a deterministic reviewer demo path if Apple reviewers cannot authenticate to Claude Code/Codex.
+7. Submit with the Review Notes in `docs/APP_STORE.md`.
+
 ## Phase 6 — Complete
 
 Normal `claude` and `codex` usage passively feeds the observer/parser/activity/IPC/audio pipeline without altering agent or shell configuration.
