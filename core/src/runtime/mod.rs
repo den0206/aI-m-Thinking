@@ -8,13 +8,15 @@ use std::time::{Duration, Instant, SystemTime};
 
 use crate::activity::ActivityEngine;
 use crate::events::{AgentState, NormalizedEvent, ToolClass};
-use crate::ipc::{AgentFlags, AgentKind, AgentRoots, ServerWriter};
+use crate::ipc::{AgentFlags, AgentKind, AgentRoots, RootGrant, ServerWriter};
+use crate::sandbox::{ScopedRoot, resolve_transfer_bookmark};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
 use crate::parsers::{ClaudeParser, CodexParser};
 
 const MAX_ACTIVE_SESSIONS: usize = 64;
 const MAX_BASELINES_PER_AGENT: usize = 128;
+const MAX_CONFIGURED_ROOTS_PER_AGENT: usize = 4;
 const MAX_DISCOVERY_ENTRIES: usize = 4096;
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -71,6 +73,7 @@ struct AgentRoot {
     path: PathBuf,
     enabled: bool,
     watcher: Option<FileObserver>,
+    _scope: Option<ScopedRoot>,
 }
 
 struct Baseline {
@@ -134,20 +137,18 @@ struct MonitorRuntime<W: io::Write + Send + 'static> {
 impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     fn new(writer: Arc<Mutex<ServerWriter<W>>>, flags: AgentFlags, roots: AgentRoots) -> Self {
         let (event_tx, event_rx) = mpsc::channel();
-        let mut configured_roots = Vec::with_capacity(roots.claude.len() + roots.codex.len());
+        let mut configured_roots = Vec::new();
 
-        configured_roots.extend(roots.claude.into_iter().map(|path| AgentRoot {
-            kind: AgentKind::Claude,
-            path: PathBuf::from(path),
-            enabled: flags.claude,
-            watcher: None,
-        }));
-        configured_roots.extend(roots.codex.into_iter().map(|path| AgentRoot {
-            kind: AgentKind::Codex,
-            path: PathBuf::from(path),
-            enabled: flags.codex,
-            watcher: None,
-        }));
+        configured_roots.extend(resolve_root_grants(
+            AgentKind::Claude,
+            roots.claude,
+            flags.claude,
+        ));
+        configured_roots.extend(resolve_root_grants(
+            AgentKind::Codex,
+            roots.codex,
+            flags.codex,
+        ));
 
         Self {
             writer,
@@ -598,4 +599,41 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
     }
+}
+
+
+fn resolve_root_grants(
+    agent: AgentKind,
+    grants: Vec<RootGrant>,
+    enabled: bool,
+) -> Vec<AgentRoot> {
+    grants
+        .into_iter()
+        .take(MAX_CONFIGURED_ROOTS_PER_AGENT)
+        .filter_map(|grant| {
+            if let Some(bookmark) = grant.bookmark {
+                let scope = resolve_transfer_bookmark(&bookmark).ok()?;
+                return Some(AgentRoot {
+                    kind: agent,
+                    path: scope.path().to_path_buf(),
+                    enabled,
+                    watcher: None,
+                    _scope: Some(scope),
+                });
+            }
+
+            let path = grant.path?;
+            if path.is_empty() {
+                return None;
+            }
+
+            Some(AgentRoot {
+                kind: agent,
+                path: PathBuf::from(path),
+                enabled,
+                watcher: None,
+                _scope: None,
+            })
+        })
+        .collect()
 }
