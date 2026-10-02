@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"id":"m1","usage":{"output_tokens":20},"content":[{"type":"text","text":"a"}]}}
+{"type":"assistant","message":{"id":"m1","usage":{"output_tokens":20},"content":[{"type":"text","text":"b"}]}}

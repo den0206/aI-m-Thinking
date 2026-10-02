@@ -1,0 +1,4 @@
+{"type":"event_msg","payload":{"type":"turn_started"}}
+{"type":"response_item","payload":{"type":"reasoning","content":"ignored"}}
+{"type":"response_item","payload":{"type":"message","role":"assistant","content":"ignored"}}
+{"type":"event_msg","payload":{"type":"turn_complete"}}

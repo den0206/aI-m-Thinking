@@ -1,0 +1,4 @@
+{"type":"user","message":{"content":"hello"}}
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"discard"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"discard"}]}}
+{"type":"system","subtype":"turn_duration"}

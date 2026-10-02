@@ -1,0 +1,4 @@
+{"type":"user","message":{"content":"task"}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Read","input":{"path":"a"}},{"type":"tool_use","id":"b","name":"Bash","input":{"command":"secret"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"a","content":"x"}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"b","content":"y"}]}}

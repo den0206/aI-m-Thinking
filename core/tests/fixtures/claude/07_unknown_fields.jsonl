@@ -1,0 +1,2 @@
+{"type":"user","future":{"huge":"ignored"},"message":{"content":"task"}}
+{"type":"assistant","new_field":[1,2,3],"message":{"content":[{"type":"thinking","future":"ignored"}]}}

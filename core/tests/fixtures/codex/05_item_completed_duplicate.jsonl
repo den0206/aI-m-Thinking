@@ -1,0 +1,2 @@
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"dup","output":"ignored"}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"function_call_output","call_id":"dup","output":"ignored"}}}

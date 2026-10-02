@@ -1,0 +1,2 @@
+{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"ignored"}}
+{"type":"response_item","payload":{"type":"function_call_output","output":"ignored"}}

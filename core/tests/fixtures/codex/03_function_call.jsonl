@@ -1,0 +1,2 @@
+{"type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"c1","arguments":"secret"}}
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"c1","output":"secret"}}

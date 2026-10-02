@@ -1,0 +1,4 @@
+{"type":"user","message":{"content":"task"}}
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"ignored"},{"type":"tool_use","id":"x","name":"Write","input":{"content":"ignored"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"x","content":"ignored"}]}}
+{"type":"system","subtype":"turn_duration"}

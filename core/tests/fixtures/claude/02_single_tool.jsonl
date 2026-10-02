@@ -1,0 +1,6 @@
+{"type":"user","message":{"content":"task"}}
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"discard"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{"file_path":"/private"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","content":"secret"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"done"}]}}
+{"type":"system","subtype":"turn_duration"}
