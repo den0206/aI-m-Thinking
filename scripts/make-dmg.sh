@@ -8,7 +8,8 @@ fi
 
 APP_PATH="$1"
 DMG_PATH="$2"
-VOLUME_NAME="${3:-I'm Thinking}"
+DEFAULT_VOLUME_NAME="I'm Thinking"
+VOLUME_NAME="${3:-$DEFAULT_VOLUME_NAME}"
 
 if [[ ! -d "$APP_PATH" ]]; then
   echo "App bundle not found: $APP_PATH" >&2
