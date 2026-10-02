@@ -19,6 +19,44 @@ struct MenuContent: View {
 
             Divider()
 
+            Picker(
+                "Sound",
+                selection: Binding(
+                    get: { model.soundPack },
+                    set: { model.selectSoundPack($0) }
+                )
+            ) {
+                ForEach(SoundPackID.allCases) { pack in
+                    Text(pack.displayName).tag(pack)
+                }
+            }
+
+            HStack {
+                Text("Volume")
+                Slider(
+                    value: Binding(
+                        get: { model.volume },
+                        set: { model.setVolume($0) }
+                    ),
+                    in: 0...1
+                )
+            }
+
+            Toggle(
+                "Mute",
+                isOn: Binding(
+                    get: { model.muted },
+                    set: { model.setMuted($0) }
+                )
+            )
+
+            Button("Preview Sound") {
+                model.previewSound()
+            }
+            .disabled(model.muted)
+
+            Divider()
+
             HStack {
                 Button("Restart Monitor") {
                     model.restartCore()
@@ -33,7 +71,7 @@ struct MenuContent: View {
             }
         }
         .padding(14)
-        .frame(width: 280)
+        .frame(width: 300)
     }
 
     private var coreIcon: String {

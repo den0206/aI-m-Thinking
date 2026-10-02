@@ -14,59 +14,52 @@ During initial development, work is committed directly to `main`. Commits are gr
 | Phase 1 | JSONL infrastructure | Complete | `82da5fc` + CI fixes |
 | Phase 2 | Claude/Codex parsers | Complete | `0c3655d` + CI fixes |
 | Phase 3 | State + Activity Engine | Complete | `92c0eb4` + CI fixes |
-| Phase 4 | IPC + macOS menu bar | Complete | this commit |
-| Phase 5 | Sound engine | Not started | - |
+| Phase 4 | IPC + macOS menu bar | Complete | `6d01945` |
+| Phase 5 | Sound engine | Complete | this commit |
 | Phase 6 | Real-agent integration | Not started | - |
 | Phase 7 | Hardening | Not started | - |
 
-## Phase 3 — Complete
-
-State reducer and Activity Velocity are implemented and validated by macOS CI. The phase also removed a flaky temp-fixture collision discovered by parallel CI.
-
 ## Phase 4 — Complete
 
-Implemented the process boundary and minimal macOS shell without audio:
+Rust protocol executable and Swift menu-bar shell both pass their macOS CI workflows.
 
-### Rust core IPC
+## Phase 5 — Complete
 
-- executable `im-thinking-core`
-- protocol v1 `hello -> configure -> ready` handshake
-- `ping/pong`, `set_agent_enabled`, `rescan`, and graceful `shutdown`
-- bounded 32 KiB stdin command records
-- oversized-command recovery
-- malformed-command recovery
-- explicit protocol-version failure
-- stdout reserved for NDJSON protocol
-- stdin EOF exits the core, preventing an orphan child
-- no transcript path/session/user content in IPC messages
+Implemented audio without adding external sound assets:
 
-### Swift menu-bar app
+- five selectable sound packs
+- short PCM sounds synthesized from per-pack profiles
+- only the selected pack is retained as decoded buffers
+- four AVAudioPlayerNode voices
+- no unbounded audio request queue
+- at most one future typing event scheduled by the cadence scheduler
+- Activity Velocity mapping capped at 15 keys/sec
+- THINKING uses slower irregular cadence
+- WRITING uses normal cadence
+- TOOL is silent unless it is a mutation tool
+- volume and mute persisted in UserDefaults
+- sound selection persisted in UserDefaults
+- preview control
+- multiple agent sessions are combined using max intensity, never summed
+- Swift unit coverage for sound-pack count and cadence bounds
 
-- SwiftUI `MenuBarExtra` for macOS 13+
-- `CoreBridge` owns a Rust child `Process`
-- bundled auxiliary executable lookup with `IM_THINKING_CORE_PATH` development override
-- handshake/configure handling
-- bounded stdout buffer
-- unexpected core termination detection
-- manual monitor restart
-- minimal Claude/Codex state rows
-- no audio code yet
+No Claude/Codex observation logic changes are included in this phase.
 
 ### Validation
 
-Phase 4 is complete after both workflows are green:
+Phase 5 is complete after App CI passes both:
 
-- Core: format, tests, Clippy
-- App: `swift build --package-path app`
+- `swift build --package-path app`
+- `swift test --package-path app`
 
-## Next: Phase 5
+## Next: Phase 6
 
-Implement audio only:
+Wire real passive observation to IPC:
 
-- Sound Pack model
-- AVAudioEngine voice pool
-- bounded queue / maximum four voices
-- Activity Velocity -> typing cadence
-- volume / mute
-- selectable Mechanical Clicky, Mechanical Thock, Laptop, Typewriter, Soft
-- no agent-observation changes in Phase 5
+- discover/tail Claude and Codex session files
+- create ephemeral session handles
+- parse only appended records
+- reduce state + activity
+- emit bounded `activity/session_opened/session_closed/observer_status`
+- preserve normal `claude` / `codex` launch behavior
+- no wrapper, alias, shell modification, or agent configuration changes

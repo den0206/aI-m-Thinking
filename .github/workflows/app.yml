@@ -23,3 +23,5 @@ jobs:
         run: swift --version
       - name: Build
         run: swift build --package-path app
+      - name: Test
+        run: swift test --package-path app

@@ -14,6 +14,11 @@ let package = Package(
         .executableTarget(
             name: "ImThinking",
             path: "Sources/ImThinking"
+        ),
+        .testTarget(
+            name: "ImThinkingTests",
+            dependencies: ["ImThinking"],
+            path: "Tests/ImThinkingTests"
         )
     ]
 )
