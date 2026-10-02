@@ -51,11 +51,11 @@ jobs:
           plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
           codesign --display --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o "$RUNNER_TEMP/app-entitlements.plist" -
           codesign --display --entitlements - --xml "$CORE" 2>/dev/null | plutil -convert xml1 -o "$RUNNER_TEMP/core-entitlements.plist" -
-          test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
-          test "$(plutil -extract com.apple.security.files.user-selected.read-only raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
-          test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/core-entitlements.plist")" = "true"
-          test "$(plutil -extract com.apple.security.inherit raw -o - "$RUNNER_TEMP/core-entitlements.plist")" = "true"
-          ! plutil -extract com.apple.security.files.user-selected.read-only raw -o - "$RUNNER_TEMP/core-entitlements.plist" >/dev/null 2>&1
+          grep -q '<key>com.apple.security.app-sandbox</key>' "$RUNNER_TEMP/app-entitlements.plist"
+          grep -q '<key>com.apple.security.files.user-selected.read-only</key>' "$RUNNER_TEMP/app-entitlements.plist"
+          grep -q '<key>com.apple.security.app-sandbox</key>' "$RUNNER_TEMP/core-entitlements.plist"
+          grep -q '<key>com.apple.security.inherit</key>' "$RUNNER_TEMP/core-entitlements.plist"
+          ! grep -q '<key>com.apple.security.files.user-selected.read-only</key>' "$RUNNER_TEMP/core-entitlements.plist"
 
       - name: Build App Bundle
         run: bash scripts/build-app.sh
