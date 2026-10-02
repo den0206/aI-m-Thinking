@@ -39,9 +39,10 @@ OUT_DIR="$ROOT/.build/$CONFIG"
 APP="$OUT_DIR/$APP_NAME.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
+RESOURCES="$CONTENTS/Resources"
 
 rm -rf "$APP"
-mkdir -p "$MACOS"
+mkdir -p "$MACOS" "$RESOURCES"
 
 if [[ "$CORE_DIR" == "release" ]]; then
   cargo build --manifest-path "$ROOT/core/Cargo.toml" --release
@@ -54,6 +55,7 @@ SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --sho
 cp "$SWIFT_BIN_DIR/ImThinking" "$MACOS/ImThinking"
 cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
 chmod 755 "$MACOS/ImThinking" "$MACOS/im-thinking-core"
+cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
