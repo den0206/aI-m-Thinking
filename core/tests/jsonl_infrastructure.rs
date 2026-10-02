@@ -1,7 +1,10 @@
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use im_thinking_core::jsonl::{
     FILE_SCAN_BUDGET, FileCursor, RefreshOutcome, record_reader, scan_records,
@@ -136,5 +139,9 @@ fn temp_path() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!("im-thinking-test-{}-{nonce}", std::process::id()))
+    let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "im-thinking-test-{}-{nonce}-{sequence}",
+        std::process::id()
+    ))
 }
