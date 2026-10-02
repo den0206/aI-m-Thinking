@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   swift:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
       - name: Toolchain
