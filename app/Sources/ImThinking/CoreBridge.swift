@@ -25,10 +25,15 @@ final class CoreBridge {
     var onMessage: ((CoreMessage) -> Void)?
     var onStatus: ((CoreStatus) -> Void)?
 
+    private let rootProvider: any AgentRootProviding
     private var process: Process?
     private var input: FileHandle?
     private var outputBuffer = Data()
     private var intentionalStop = false
+
+    init(rootProvider: any AgentRootProviding = DirectAgentRootProvider()) {
+        self.rootProvider = rootProvider
+    }
 
     func start() {
         guard process == nil else { return }
@@ -143,11 +148,15 @@ final class CoreBridge {
 
         switch message.type {
         case "hello":
+            let roots = rootProvider.roots()
             send([
                 "v": 1,
                 "type": "configure",
                 "agents": ["claude": true, "codex": true],
-                "extra_roots": []
+                "roots": [
+                    "claude": roots.claude.map(\.path),
+                    "codex": roots.codex.map(\.path)
+                ]
             ])
         case "ready":
             onStatus?(.monitoring)
