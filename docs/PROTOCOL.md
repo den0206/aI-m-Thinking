@@ -54,9 +54,37 @@ Every Core -> App message contains:
   "v": 1,
   "type": "configure",
   "agents": {"claude": true, "codex": true},
-  "extra_roots": []
+  "roots": {
+    "claude": [{"path": "/Users/example/.claude/projects", "bookmark": null}],
+    "codex": [{"path": "/Users/example/.codex/sessions", "bookmark": null}]
+  }
 }
 ```
+
+### Root grants
+
+Each configured root is one of:
+
+```json
+{"path":"/absolute/read-only/root","bookmark":null}
+```
+
+or:
+
+```json
+{"path":null,"bookmark":"BASE64_BOOKMARK_DATA"}
+```
+
+Direct distribution uses explicit path grants supplied by Swift. App Store mode uses a transfer bookmark created from a user-approved security-scoped URL.
+
+Rules:
+
+- Rust Core never derives agent roots from `HOME`.
+- At most 4 configured roots per agent are accepted.
+- A bookmark grant takes precedence if both fields are present.
+- Invalid/empty grants are ignored.
+- The entire configure record remains subject to the 32 KiB IPC limit.
+- Real session identifiers and transcript contents never cross IPC.
 
 ## App -> Core messages
 
