@@ -21,5 +21,5 @@ let package = Package(
             path: "Tests/ImThinkingTests"
         )
     ],
-    swiftLanguageVersions: [.version("6")]
+    swiftLanguageModes: [.v6]
 )
