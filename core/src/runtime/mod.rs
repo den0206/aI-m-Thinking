@@ -601,7 +601,6 @@ mod tests {
     }
 }
 
-
 fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) -> Vec<AgentRoot> {
     grants
         .into_iter()
