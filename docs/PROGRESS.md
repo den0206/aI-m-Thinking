@@ -17,7 +17,7 @@ During initial development, work is committed directly to `main`. Commits are gr
 | Phase 4 | IPC + macOS menu bar | Complete | `6d01945` |
 | Phase 5 | Sound engine | Complete | `ee9a924` + test fix |
 | Phase 6 | Real-agent integration | Complete | `e4e7196` + CI fixes |
-| Phase 7 | Hardening / packaging | CI implementation complete; device smoke pending | this commit |
+| Phase 7 | Hardening / packaging | CI complete; device smoke pending | `092aeba` + CI fixes |
 
 ## Phase 6 — Complete
 
