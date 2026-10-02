@@ -19,10 +19,10 @@ impl RecordRange {
 
 /// Returns a reader limited to one JSONL record without allocating a buffer for
 /// the complete record. The trailing newline is excluded.
-pub fn record_reader<'a, R: Read + Seek>(
-    reader: &'a mut R,
+pub fn record_reader<R: Read + Seek>(
+    reader: &mut R,
     range: RecordRange,
-) -> io::Result<Take<&'a mut R>> {
+) -> io::Result<Take<&mut R>> {
     reader.seek(SeekFrom::Start(range.start))?;
     Ok(reader.take(range.len()))
 }
