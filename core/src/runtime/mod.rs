@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::{self, BufWriter, Seek};
+use std::io::{self, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
@@ -64,7 +64,6 @@ where
 
 struct AgentRoot {
     kind: AgentKind,
-    path: PathBuf,
     enabled: bool,
     watcher: Option<FileObserver>,
 }
@@ -344,7 +343,6 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         let session = Session {
             handle,
             agent,
-            path: path.clone(),
             file,
             cursor,
             parser: Parser::new(agent),
