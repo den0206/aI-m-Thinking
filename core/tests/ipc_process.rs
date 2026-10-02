@@ -29,10 +29,22 @@ fn core_handshake_ping_and_shutdown() {
     let hello = read_json(&mut stdout);
     assert_eq!(hello["type"], "hello");
 
-    write_command(
-        &mut stdin,
-        r#"{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}"#,
-    );
+    let configure = serde_json::json!({
+        "v": 1,
+        "type": "configure",
+        "agents": {
+            "claude": true,
+            "codex": true
+        },
+        "roots": {
+            "claude": [{
+                "path": home.join("claude").to_string_lossy()
+            }],
+            "codex": []
+        }
+    })
+    .to_string();
+    write_command(&mut stdin, &configure);
 
     let ready = read_json(&mut stdout);
     assert_eq!(ready["type"], "ready");
