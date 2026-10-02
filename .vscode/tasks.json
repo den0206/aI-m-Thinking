@@ -17,6 +17,13 @@
         "kind": "build",
         "isDefault": true
       }
+    },
+    {
+      "label": "Build Rust Core",
+      "type": "shell",
+      "command": "cargo build --manifest-path core/Cargo.toml",
+      "problemMatcher": [],
+      "group": "build"
     }
   ]
 }
