@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::Sender;
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
@@ -24,7 +23,10 @@ pub struct FileObserver {
 impl FileObserver {
     /// Watches a root recursively using notify's recommended native backend.
     /// On macOS notify uses FSEvents with its default features.
-    pub fn watch(root: &Path, sender: Sender<ChangeEvent>) -> notify::Result<Self> {
+    ///
+    /// `sink` runs on the watcher's thread and must not block; the caller is
+    /// responsible for bounding and dropping events.
+    pub fn watch(root: &Path, sink: impl Fn(ChangeEvent) + Send + 'static) -> notify::Result<Self> {
         let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
             let Ok(event) = result else {
                 return;
@@ -37,7 +39,7 @@ impl FileObserver {
                 _ => ChangeKind::Other,
             };
 
-            let _ = sender.send(ChangeEvent {
+            sink(ChangeEvent {
                 kind,
                 paths: event.paths,
             });
