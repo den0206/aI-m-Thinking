@@ -154,8 +154,8 @@ final class CoreBridge {
                 "type": "configure",
                 "agents": ["claude": true, "codex": true],
                 "roots": [
-                    "claude": roots.claude.map(\.path),
-                    "codex": roots.codex.map(\.path)
+                    "claude": roots.claude.map(\.jsonObject),
+                    "codex": roots.codex.map(\.jsonObject)
                 ]
             ])
         case "ready":
