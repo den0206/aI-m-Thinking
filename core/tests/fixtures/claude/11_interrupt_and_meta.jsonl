@@ -1,0 +1,7 @@
+{"type":"user","isMeta":true,"message":{"role":"user","content":[{"type":"text","text":"ignored"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"ignored"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"ignored"},{"type":"image","source":{"type":"base64","data":"ignored"}}]}}
+{"type":"user","message":{"role":"user","content":"<command-name>/model</command-name>\n<command-args></command-args>"}}
+{"type":"user","message":{"role":"user","content":"<local-command-stdout>ignored</local-command-stdout>"}}
+{"type":"user","message":{"role":"user","content":"[Request interrupted by user]"}}
+{"type":"user","message":{"role":"user","content":"next prompt"}}

@@ -192,3 +192,78 @@ fn malformed_never_panics() {
         let _ = codex.parse(Cursor::new(input.as_bytes()));
     }
 }
+
+#[test]
+fn claude_stop_reason_ends_turn_without_turn_duration() {
+    use im_thinking_core::activity::SessionState;
+    use im_thinking_core::events::AgentState;
+
+    let events = claude(include_str!(
+        "fixtures/claude/10_stop_reason_turn_end.jsonl"
+    ));
+    assert_eq!(events.first(), Some(&NormalizedEvent::TurnStart));
+    assert_eq!(events.last(), Some(&NormalizedEvent::TurnEnd));
+
+    let mut state = SessionState::default();
+    for event in &events {
+        state.apply(event);
+    }
+    assert_eq!(state.phase(), AgentState::Idle);
+    assert!(!state.awaiting_model());
+}
+
+#[test]
+fn claude_user_rows_distinguish_prompts_from_interruptions() {
+    let events = claude(include_str!("fixtures/claude/11_interrupt_and_meta.jsonl"));
+    // Meta row: ignored. Text-only list: interruption. Image prompt: new turn.
+    // Local command echo and output: ignored. String interrupt marker: turn
+    // end. Plain prompt: new turn.
+    assert_eq!(
+        events,
+        vec![
+            NormalizedEvent::TurnEnd,
+            NormalizedEvent::TurnStart,
+            NormalizedEvent::TurnEnd,
+            NormalizedEvent::TurnStart,
+        ]
+    );
+}
+
+#[test]
+fn records_report_their_write_time() {
+    let line = include_str!("fixtures/claude/10_stop_reason_turn_end.jsonl")
+        .lines()
+        .next()
+        .unwrap();
+    let record = ClaudeParser::default()
+        .parse_record(Cursor::new(line.as_bytes()))
+        .unwrap();
+    assert_eq!(record.timestamp_ms, Some(1_790_935_200_000));
+
+    let line = include_str!("fixtures/codex/12_hosted_and_named_tools.jsonl")
+        .lines()
+        .next()
+        .unwrap();
+    let record = CodexParser::default()
+        .parse_record(Cursor::new(line.as_bytes()))
+        .unwrap();
+    assert_eq!(record.timestamp_ms, Some(1_790_935_200_000));
+}
+
+#[test]
+fn codex_hosted_tools_do_not_open_tools_and_names_are_classified() {
+    let classes: Vec<_> = codex(include_str!(
+        "fixtures/codex/12_hosted_and_named_tools.jsonl"
+    ))
+    .into_iter()
+    .map(|event| match event {
+        NormalizedEvent::ToolStart { class, .. } => class,
+        other => panic!("unexpected event {other:?}"),
+    })
+    .collect();
+
+    assert_eq!(
+        classes,
+        vec![ToolClass::Mutation, ToolClass::Shell, ToolClass::SubAgent]
+    );
+}

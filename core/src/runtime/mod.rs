@@ -9,7 +9,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::activity::ActivityEngine;
-use crate::events::{AgentState, NormalizedEvent, ToolClass};
+use crate::events::{AgentState, ParsedRecord, ToolClass};
 use crate::ipc::{AgentFlags, AgentKind, AgentRoots, RootGrant, ServerWriter};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
@@ -33,6 +33,11 @@ const STALE_TURN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// Creation timestamps can come from a coarse clock, so only files created
 /// clearly before monitoring started are treated as pre-existing.
 const CREATION_SLACK: Duration = Duration::from_secs(1);
+/// Records written longer ago than this are history (for example a Codex
+/// rollout restored from `.jsonl.zst` on resume): they update state but never
+/// produce sound. Claude Code stamps blocks when they start, up to about a
+/// minute before the message is written, so the margin is generous.
+const HISTORY_AGE: Duration = Duration::from_secs(10 * 60);
 /// serde_json reads one byte per `read()` call, so records are buffered.
 const PARSE_BUFFER_BYTES: usize = 8 * 1024;
 
@@ -129,11 +134,11 @@ impl Parser {
         }
     }
 
-    fn parse(&mut self, reader: impl io::Read) -> serde_json::Result<Vec<NormalizedEvent>> {
+    fn parse(&mut self, reader: impl io::Read) -> serde_json::Result<ParsedRecord> {
         let reader = BufReader::with_capacity(PARSE_BUFFER_BYTES, reader);
         match self {
-            Self::Claude(parser) => parser.parse(reader),
-            Self::Codex(parser) => parser.parse(reader),
+            Self::Claude(parser) => parser.parse_record(reader),
+            Self::Codex(parser) => parser.parse_record(reader),
         }
     }
 }
@@ -586,6 +591,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
     fn process_session(&mut self, path: &Path) {
         let now = self.now();
+        let history_before_ms = wall_clock_ms().saturating_sub(HISTORY_AGE.as_millis() as i64);
         let Some(session) = self.sessions.get_mut(path) else {
             return;
         };
@@ -606,13 +612,20 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
             session.cursor.commit_through(range.next_offset);
 
-            let Ok(events) = parsed else {
+            let Ok(record) = parsed else {
                 continue;
             };
 
-            for event in events {
-                session.activity.apply(&event, now);
-                session.last_event_at = now;
+            let history = record
+                .timestamp_ms
+                .is_some_and(|written| written < history_before_ms);
+            for event in record.events {
+                if history {
+                    session.activity.apply_history(&event);
+                } else {
+                    session.activity.apply(&event, now);
+                    session.last_event_at = now;
+                }
             }
         }
 
@@ -706,6 +719,12 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             let _ = action(&mut writer);
         }
     }
+}
+
+fn wall_clock_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as i64)
 }
 
 fn agent_index(agent: AgentKind) -> usize {
@@ -1024,7 +1043,8 @@ mod tests {
         fixture.change(ChangeKind::Create, &path);
         assert!(!fixture.output.take_activity().is_empty());
 
-        for _ in 0..80 {
+        // Pending model output holds activity for up to two minutes.
+        for _ in 0..1300 {
             fixture.advance(ACTIVITY_INTERVAL);
         }
         let settled = fixture.output.take_activity();
@@ -1053,6 +1073,35 @@ mod tests {
         assert_eq!(activity.len(), 1);
         assert_eq!(activity[0]["phase"], "idle");
         assert_eq!(fixture.runtime.next_wakeup(), None);
+    }
+
+    #[test]
+    fn restored_history_updates_state_without_emitting_activity() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("restored.jsonl");
+        // A rollout materialized from an archive: complete, old records.
+        append(
+            &path,
+            r#"{"type":"user","timestamp":"2020-01-01T00:00:00Z","message":{"content":"x"}}"#,
+        );
+        append(
+            &path,
+            r#"{"type":"assistant","timestamp":"2020-01-01T00:00:05Z","message":{"content":[{"type":"thinking"}]}}"#,
+        );
+
+        fixture.change(ChangeKind::Create, &path);
+        for _ in 0..20 {
+            fixture.advance(ACTIVITY_INTERVAL);
+        }
+
+        assert!(
+            fixture
+                .output
+                .take_activity()
+                .iter()
+                .all(|message| message["intensity"] == 0.0)
+        );
+        assert!(!fixture.session(&path).activity.state().awaiting_model());
     }
 
     #[test]

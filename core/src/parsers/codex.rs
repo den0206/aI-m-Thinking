@@ -1,4 +1,5 @@
-use crate::events::{Confidence, NormalizedEvent, ToolClass, ToolKey, classify_tool};
+use crate::events::{Confidence, NormalizedEvent, ParsedRecord, ToolClass, ToolKey, classify_tool};
+use crate::timestamp::parse_utc_ms;
 use serde::Deserialize;
 use std::{collections::VecDeque, io::Read};
 
@@ -13,6 +14,10 @@ pub struct CodexParser {
 
 impl CodexParser {
     pub fn parse<R: Read>(&mut self, reader: R) -> serde_json::Result<Vec<NormalizedEvent>> {
+        self.parse_record(reader).map(|record| record.events)
+    }
+
+    pub fn parse_record<R: Read>(&mut self, reader: R) -> serde_json::Result<ParsedRecord> {
         let record: CodexRecord = serde_json::from_reader(reader)?;
         let mut out = Vec::new();
 
@@ -23,7 +28,10 @@ impl CodexParser {
             _ => {}
         }
 
-        Ok(out)
+        Ok(ParsedRecord {
+            events: out,
+            timestamp_ms: record.timestamp.as_deref().and_then(parse_utc_ms),
+        })
     }
 
     fn response(&mut self, p: &CodexPayload, out: &mut Vec<NormalizedEvent>) {
@@ -92,7 +100,6 @@ impl CodexParser {
     fn tool_start(&mut self, p: &CodexPayload, kind: &str) -> NormalizedEvent {
         let name = p.name.as_deref().unwrap_or(kind);
         let class = match kind {
-            "web_search_call" => ToolClass::Search,
             "local_shell_call" => ToolClass::Shell,
             _ => classify_tool(name),
         };
@@ -157,6 +164,11 @@ impl CodexParser {
     }
 }
 
+/// Response items that start a tool which later reports an output item.
+///
+/// `web_search_call` and `image_generation_call` are excluded: Codex persists
+/// them only once the hosted tool has completed and no output item follows,
+/// so treating them as starts would leave the session stuck in TOOL.
 fn is_call(k: &str) -> bool {
     matches!(
         k,
@@ -164,8 +176,6 @@ fn is_call(k: &str) -> bool {
             | "custom_tool_call"
             | "local_shell_call"
             | "tool_search_call"
-            | "web_search_call"
-            | "image_generation_call"
             | "mcp_tool_call"
     )
 }
@@ -185,6 +195,7 @@ fn is_output(k: &str) -> bool {
 
 #[derive(Debug, Deserialize)]
 struct CodexRecord {
+    timestamp: Option<String>,
     #[serde(rename = "type")]
     kind: Option<String>,
     #[serde(default)]
