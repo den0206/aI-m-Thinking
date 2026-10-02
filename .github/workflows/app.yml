@@ -31,6 +31,12 @@ jobs:
         run: swift build --package-path app
       - name: Test
         run: swift test --package-path app
+      - name: Build Debug App Bundle
+        run: CONFIG=debug bash scripts/build-app.sh
+      - name: Verify Debug Bundle
+        run: |
+          test -x ".build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ".build/debug/I'm Thinking Debug.app/Contents/Info.plist")" = "com.den0206.ImThinking.debug"
 
       - name: Build App Bundle
         run: bash scripts/build-app.sh
