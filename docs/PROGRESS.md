@@ -19,6 +19,27 @@ During initial development, work is committed directly to `main`. Commits are gr
 | Phase 6 | Real-agent integration | Complete | `e4e7196` + CI fixes |
 | Phase 7 | Hardening / packaging | CI complete; device smoke pending | `092aeba` + CI fixes |
 
+## Platform modernization — Complete
+
+The macOS app intentionally targets the current modern platform baseline:
+
+- minimum deployment target: macOS 26.0
+- Swift tools version: 6.4
+- Swift language mode: Swift 6 via `swiftLanguageModes: [.v6]`
+- repository toolchain pin: `.swift-version` = `6.4.0`
+- App CI runner: Xcode 27
+- CI explicitly verifies Apple Swift 6.4
+- tests use Swift Testing instead of XCTest
+- `CoreBridge` is MainActor-isolated
+- `KeyboardAudioEngine` is MainActor-isolated
+- delayed UI/audio work uses Swift Concurrency instead of DispatchQueue callbacks
+- wake handling uses async NotificationCenter sequences
+- duplicate bundled Core executable lookup was removed
+- packaged `Info.plist` requires macOS 26.0
+- CI verifies the packaged deployment target is exactly 26.0
+
+Latest modernization App CI: `37015100779` — build, tests, app bundle construction, and bundle verification all passed.
+
 ## Phase 6 — Complete
 
 Normal `claude` and `codex` usage passively feeds the observer/parser/activity/IPC/audio pipeline without altering agent or shell configuration.
