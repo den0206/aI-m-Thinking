@@ -6,6 +6,7 @@ These limits are product requirements, not optional optimizations.
 
 ```rust
 const MAX_ACTIVE_SESSIONS: usize = 64;
+const MAX_CONFIGURED_ROOTS_PER_AGENT: usize = 4;
 const MAX_ACTIVITY_QUEUE: usize = 256;
 const MAX_RECENT_FINGERPRINTS: usize = 128;
 
@@ -82,3 +83,14 @@ I'm Thinking must never persist:
 - real Claude/Codex session IDs
 
 Only ephemeral classification metadata/counters may cross from Rust to Swift.
+
+
+## Sandbox grants
+
+- Direct mode sends absolute root paths over the existing bounded IPC channel.
+- App Store mode persists only security-scoped bookmark data in the app container.
+- The Rust helper receives transfer bookmark data, resolves it locally, and holds the resulting scope only for the monitor lifetime.
+- Root grants are capped at 4 per agent.
+- Configure messages remain capped at 32 KiB.
+- The helper receives App Sandbox + inherit entitlements only; it does not receive broad user-selected file entitlements.
+- Full Disk Access is not a supported fallback.
