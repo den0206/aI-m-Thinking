@@ -42,7 +42,7 @@ jobs:
         run: bash scripts/build-app.sh
       - name: Verify Bundle
         run: |
-          test -x "dist/I'm Thinking.app/Contents/MacOS/ImThinking"
-          test -x "dist/I'm Thinking.app/Contents/MacOS/im-thinking-core"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "dist/I'm Thinking.app/Contents/Info.plist")" = "26.0"
-          plutil -lint "dist/I'm Thinking.app/Contents/Info.plist"
+          test -x ".build/release/I'm Thinking.app/Contents/MacOS/ImThinking"
+          test -x ".build/release/I'm Thinking.app/Contents/MacOS/im-thinking-core"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' ".build/release/I'm Thinking.app/Contents/Info.plist")" = "26.0"
+          plutil -lint ".build/release/I'm Thinking.app/Contents/Info.plist"
