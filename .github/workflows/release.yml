@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: meta
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          VERSION="${TAG#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Release tag must be vX.Y.Z (received: $TAG)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dmg=Im-Thinking-$VERSION.dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Verify toolchain
+        run: |
+          swift --version
+          swift --version | grep -q 'Apple Swift version 6.4'
+
+      - name: Verify tests
+        run: |
+          cargo test --manifest-path core/Cargo.toml
+          cargo clippy --manifest-path core/Cargo.toml --all-targets -- -D warnings
+          swift test --package-path app
+
+      - name: Require signing and notarization secrets
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD MACOS_SIGN_IDENTITY KEYCHAIN_PASSWORD NOTARY_APPLE_ID NOTARY_TEAM_ID NOTARY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is required for public release"
+              exit 1
+            fi
+          done
+
+      - name: Import Developer ID certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build signed app
+        env:
+          MARKETING_VERSION: ${{ steps.meta.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bash scripts/build-app.sh
+
+      - name: Notarize and staple app
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          APP=".build/release/I'm Thinking.app"
+          ZIP="$RUNNER_TEMP/Im-Thinking.zip"
+          ditto -c -k --keepParent --sequesterRsrc "$APP" "$ZIP"
+          xcrun notarytool submit "$ZIP" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" \
+            --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          codesign --verify --strict --verbose=2 "$APP"
+
+      - name: Create DMG
+        run: |
+          bash scripts/make-dmg.sh \
+            ".build/release/I'm Thinking.app" \
+            "${{ steps.meta.outputs.dmg }}" \
+            "I'm Thinking ${{ steps.meta.outputs.version }}"
+
+      - name: Sign DMG
+        run: codesign --force --timestamp --sign "$SIGN_IDENTITY" "${{ steps.meta.outputs.dmg }}"
+
+      - name: Notarize and staple DMG
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          DMG="${{ steps.meta.outputs.dmg }}"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" \
+            --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+
+      - name: Verify release artifact
+        run: |
+          DMG="${{ steps.meta.outputs.dmg }}"
+          codesign --verify --verbose=2 "$DMG"
+          spctl -a -t open --context context:primary-signature -vv "$DMG" || true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          DMG: ${{ steps.meta.outputs.dmg }}
+        run: |
+          gh release create "$TAG" "$DMG" \
+            --verify-tag \
+            --title "I'm Thinking $VERSION" \
+            --generate-notes
