@@ -58,7 +58,8 @@ impl SessionState {
                 }
             }
             NormalizedEvent::ToolStart { id, class } => {
-                if self.active_tools.len() < MAX_ACTIVE_TOOLS || self.active_tools.contains_key(id)\n                {
+                if self.active_tools.len() < MAX_ACTIVE_TOOLS || self.active_tools.contains_key(id)
+                {
                     self.active_tools.insert(id.clone(), *class);
                 }
                 self.phase = AgentState::Tool;
