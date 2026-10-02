@@ -1,9 +1,7 @@
 use std::time::Duration;
 
 use im_thinking_core::activity::{ActivityEngine, SessionState, UsageCadence};
-use im_thinking_core::events::{
-    AgentState, Confidence, NormalizedEvent, ToolClass, ToolKey,
-};
+use im_thinking_core::events::{AgentState, Confidence, NormalizedEvent, ToolClass, ToolKey};
 
 fn ms(value: u64) -> Duration {
     Duration::from_millis(value)

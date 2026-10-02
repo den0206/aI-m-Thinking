@@ -111,10 +111,7 @@ impl ActivityEngine {
                 self.confidence = Confidence::Low;
                 self.basis = ActivityBasis::StateBaseline;
             }
-            NormalizedEvent::ThinkingPulse {
-                units,
-                confidence,
-            } => {
+            NormalizedEvent::ThinkingPulse { units, confidence } => {
                 self.thinking = Some(Impulse {
                     value: impulse_value(*units, 0.35, 0.56),
                     at: now,
@@ -124,10 +121,7 @@ impl ActivityEngine {
                 self.confidence = *confidence;
                 self.basis = ActivityBasis::ReasoningRecord;
             }
-            NormalizedEvent::WritingPulse {
-                units,
-                confidence,
-            } => {
+            NormalizedEvent::WritingPulse { units, confidence } => {
                 self.writing = Some(Impulse {
                     value: impulse_value(*units, 0.45, 0.68),
                     at: now,
@@ -184,10 +178,7 @@ impl ActivityEngine {
             .max(baseline)
             * confidence_multiplier(self.effective_confidence(now));
 
-        let dt_ms = now
-            .saturating_sub(self.last_sample_at)
-            .as_secs_f32()
-            * 1000.0;
+        let dt_ms = now.saturating_sub(self.last_sample_at).as_secs_f32() * 1000.0;
         let tau = if target > self.smoothed {
             RISE_TAU_MS
         } else {
