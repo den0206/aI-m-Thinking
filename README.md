@@ -1,5 +1,7 @@
 # I'm Thinking
 
+Requires macOS 26.0+ and Swift 6.4 for development.
+
 A macOS menu-bar app that turns Claude Code / Codex activity into keyboard-like sound.
 
 ## Current behavior
