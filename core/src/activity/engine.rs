@@ -183,12 +183,14 @@ impl ActivityEngine {
             self.token_score = 0.0;
         }
 
+        // A token rate is only meaningful while fresh usage keeps arriving.
+        // Without a new update the score must decay like any other signal.
+        let token = self.last_usage_at.map_or(0.0, |at| {
+            self.token_score * freshness(now.saturating_sub(at))
+        });
+
         let baseline = self.state_baseline(now);
-        let target = thinking
-            .max(writing)
-            .max(mutation)
-            .max(self.token_score)
-            .max(baseline)
+        let target = thinking.max(writing).max(mutation).max(token).max(baseline)
             * confidence_multiplier(self.effective_confidence(now));
 
         let dt_ms = now.saturating_sub(self.last_sample_at).as_secs_f32() * 1000.0;
@@ -211,12 +213,26 @@ impl ActivityEngine {
             phase: self.state.phase(),
             intensity: self.smoothed,
             confidence: self.effective_confidence(now),
-            basis: if count_nonzero([thinking, writing, mutation, self.token_score, baseline]) > 1 {
+            basis: if count_nonzero([thinking, writing, mutation, token, baseline]) > 1 {
                 ActivityBasis::Mixed
             } else {
                 self.basis
             },
         }
+    }
+
+    /// Closes a turn that has produced no signal for `timeout`, for example
+    /// after the user interrupted an agent and no turn-end record was written.
+    /// Returns true when the session was forced back to IDLE.
+    pub fn expire_stale_turn(&mut self, now: Duration, timeout: Duration) -> bool {
+        if self.state.phase() == AgentState::Idle
+            || now.saturating_sub(self.last_signal_at) < timeout
+        {
+            return false;
+        }
+
+        self.apply(&NormalizedEvent::TurnEnd, now);
+        true
     }
 
     fn apply_usage(&mut self, output: u32, reasoning: u32, now: Duration) {
