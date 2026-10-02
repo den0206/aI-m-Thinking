@@ -46,10 +46,7 @@ impl MonitorHandle {
     }
 }
 
-pub fn spawn_monitor<W>(
-    writer: Arc<Mutex<ServerWriter<W>>>,
-    flags: AgentFlags,
-) -> MonitorHandle
+pub fn spawn_monitor<W>(writer: Arc<Mutex<ServerWriter<W>>>, flags: AgentFlags) -> MonitorHandle
 where
     W: io::Write + Send + 'static,
 {
@@ -443,7 +440,10 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             }
         }
 
-        let eof = session.file.seek(io::SeekFrom::End(0)).unwrap_or(session.cursor.scan_offset());
+        let eof = session
+            .file
+            .seek(io::SeekFrom::End(0))
+            .unwrap_or(session.cursor.scan_offset());
         session.dirty = session.cursor.scan_offset() < eof;
 
         if saw_event {
@@ -557,10 +557,7 @@ mod tests {
 
     #[test]
     fn discovery_only_returns_jsonl_files() {
-        let root = std::env::temp_dir().join(format!(
-            "im-thinking-runtime-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("im-thinking-runtime-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("nested")).unwrap();
         fs::write(root.join("a.jsonl"), b"{}\n").unwrap();
@@ -569,7 +566,11 @@ mod tests {
 
         let files = discover_jsonl(&root);
         assert_eq!(files.len(), 2);
-        assert!(files.iter().all(|(path, _)| path.extension().unwrap() == "jsonl"));
+        assert!(
+            files
+                .iter()
+                .all(|(path, _)| path.extension().unwrap() == "jsonl")
+        );
 
         let _ = fs::remove_dir_all(root);
     }
