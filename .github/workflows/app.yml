@@ -49,8 +49,8 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :ImThinkingDistribution' "$APP/Contents/Info.plist")" = "app-store"
           test -f "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
           plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
-          codesign -d --entitlements :- "$APP" > "$RUNNER_TEMP/app-entitlements.plist" 2>/dev/null
-          codesign -d --entitlements :- "$CORE" > "$RUNNER_TEMP/core-entitlements.plist" 2>/dev/null
+          codesign --display --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o "$RUNNER_TEMP/app-entitlements.plist" -
+          codesign --display --entitlements - --xml "$CORE" 2>/dev/null | plutil -convert xml1 -o "$RUNNER_TEMP/core-entitlements.plist" -
           test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
           test "$(plutil -extract com.apple.security.files.user-selected.read-only raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
           test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/core-entitlements.plist")" = "true"
