@@ -40,6 +40,36 @@ The macOS app intentionally targets the current modern platform baseline:
 
 Latest modernization App CI: `37015100779` — build, tests, app bundle construction, and bundle verification all passed.
 
+## Distribution / developer workflow modernization — Complete
+
+Reborn was reviewed as a reference and only the pieces appropriate for I'm Thinking were adopted:
+
+- same-repository GitHub Releases; no dedicated release repository
+- tag-based release trigger: `vX.Y.Z`
+- Developer ID signing for the bundled Rust helper and macOS app
+- app notarization + staple before DMG creation
+- DMG creation with an `/Applications` shortcut
+- DMG signing + notarization + staple
+- GitHub Release publication with the repository's own `GITHUB_TOKEN`
+- VS Code / Cursor F5 workflow using CodeLLDB
+- real `.app` bundle debugging rather than launching the raw Swift executable
+- separate debug identity: `I'm Thinking Debug` / `com.den0206.ImThinking.debug`
+- debug `get-task-allow` entitlement for LLDB
+- separate CodeLLDB entry for the Rust Core
+- expanded README, development guide, release guide, manual verification checklist, and CHANGELOG
+
+Deliberately not adopted from Reborn:
+
+- dedicated public release repository
+- self-update
+- custom `+N` re-release numbering
+- Accessibility/TCC-specific development infrastructure
+- Reborn-specific application/system abstraction layers
+
+Release secrets are intentionally mandatory for the public release workflow so an unsigned or unnotarized DMG is not accidentally published.
+
+The release workflow is implemented but has not been exercised with a real `vX.Y.Z` tag and Apple signing/notarization secrets. That remains a release-candidate verification item rather than an implementation gap.
+
 ## Phase 6 — Complete
 
 Normal `claude` and `codex` usage passively feeds the observer/parser/activity/IPC/audio pipeline without altering agent or shell configuration.
