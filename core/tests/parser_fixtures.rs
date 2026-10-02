@@ -126,10 +126,7 @@ fn codex_dedup() {
 fn codex_missing_id() {
     let events = codex(include_str!("fixtures/codex/06_missing_call_id.jsonl"));
     assert!(matches!(events[0], NormalizedEvent::ToolStart { .. }));
-    assert!(matches!(
-        events[1],
-        NormalizedEvent::ToolEnd { id: None }
-    ));
+    assert!(matches!(events[1], NormalizedEvent::ToolEnd { id: None }));
 }
 
 #[test]
