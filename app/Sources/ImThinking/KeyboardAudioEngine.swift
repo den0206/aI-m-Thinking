@@ -65,11 +65,15 @@ final class KeyboardAudioEngine {
 
     func preview() {
         play(.key)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) { [weak self] in
-            self?.play(.key)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { [weak self] in
-            self?.play(.enter)
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(70))
+            guard let self, !Task.isCancelled else { return }
+            self.play(.key)
+
+            try? await Task.sleep(for: .milliseconds(70))
+            guard !Task.isCancelled else { return }
+            self.play(.enter)
         }
     }
 
