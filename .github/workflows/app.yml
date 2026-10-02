@@ -7,12 +7,14 @@ on:
       - "app/**"
       - "core/**"
       - "scripts/build-app.sh"
+      - "scripts/make-dmg.sh"
       - ".github/workflows/app.yml"
   pull_request:
     paths:
       - "app/**"
       - "core/**"
       - "scripts/build-app.sh"
+      - "scripts/make-dmg.sh"
       - ".github/workflows/app.yml"
 
 permissions:
@@ -46,3 +48,8 @@ jobs:
           test -x ".build/release/I'm Thinking.app/Contents/MacOS/im-thinking-core"
           test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' ".build/release/I'm Thinking.app/Contents/Info.plist")" = "26.0"
           plutil -lint ".build/release/I'm Thinking.app/Contents/Info.plist"
+
+      - name: Build Test DMG
+        run: |
+          bash scripts/make-dmg.sh             ".build/release/I'm Thinking.app"             "$RUNNER_TEMP/Im-Thinking-test.dmg"             "I'm Thinking Test"
+          hdiutil imageinfo "$RUNNER_TEMP/Im-Thinking-test.dmg" >/dev/null
