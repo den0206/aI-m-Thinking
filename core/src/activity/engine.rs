@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use crate::events::{AgentState, Confidence, NormalizedEvent, ToolClass};
 use super::SessionState;
+use crate::events::{AgentState, Confidence, NormalizedEvent, ToolClass};
 
 const MAX_USAGE_INTERVALS: usize = 4;
 const REALTIME_USAGE_MAX_INTERVAL: Duration = Duration::from_millis(1500);
