@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
     private let audio: KeyboardAudioEngine
     private let scheduler: TypingScheduler
     private var activities: [UInt32: ActivityState] = [:]
+    private var wakeTask: Task<Void, Never>?
 
     init() {
         let defaults = UserDefaults.standard
@@ -43,13 +44,18 @@ final class AppModel: ObservableObject {
         }
         bridge.start()
 
-        _ = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak bridge] _ in
-            bridge?.rescan()
+        wakeTask = Task { [weak self] in
+            for await _ in NSWorkspace.shared.notificationCenter.notifications(
+                named: NSWorkspace.didWakeNotification
+            ) {
+                guard !Task.isCancelled else { return }
+                self?.bridge.rescan()
+            }
         }
+    }
+
+    deinit {
+        wakeTask?.cancel()
     }
 
     func restartCore() {
