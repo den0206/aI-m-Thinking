@@ -117,10 +117,7 @@ fn replacement_resyncs_without_replaying_history() {
     fs::rename(&replacement, &path).unwrap();
 
     let reopened = OpenOptions::new().read(true).open(&path).unwrap();
-    assert_eq!(
-        cursor.refresh(&reopened).unwrap(),
-        RefreshOutcome::Replaced
-    );
+    assert_eq!(cursor.refresh(&reopened).unwrap(), RefreshOutcome::Replaced);
     assert_eq!(cursor.committed_offset(), 12);
 
     let _ = fs::remove_file(path);
@@ -139,8 +136,5 @@ fn temp_path() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!(
-        "im-thinking-test-{}-{nonce}",
-        std::process::id()
-    ))
+    std::env::temp_dir().join(format!("im-thinking-test-{}-{nonce}", std::process::id()))
 }
