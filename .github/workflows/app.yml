@@ -40,6 +40,21 @@ jobs:
           test -x ".build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ".build/debug/I'm Thinking Debug.app/Contents/Info.plist")" = "com.den0206.ImThinking.debug"
 
+      - name: Build App Store Smoke Bundle
+        run: CONFIG=appstore-smoke bash scripts/build-app.sh
+      - name: Verify App Store Sandbox Entitlements
+        run: |
+          APP=".build/appstore-smoke/I'm Thinking App Store Smoke.app"
+          CORE="$APP/Contents/MacOS/im-thinking-core"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :ImThinkingDistribution' "$APP/Contents/Info.plist")" = "app-store"
+          codesign -d --entitlements :- "$APP" > "$RUNNER_TEMP/app-entitlements.plist" 2>/dev/null
+          codesign -d --entitlements :- "$CORE" > "$RUNNER_TEMP/core-entitlements.plist" 2>/dev/null
+          test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
+          test "$(plutil -extract com.apple.security.files.user-selected.read-only raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
+          test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/core-entitlements.plist")" = "true"
+          test "$(plutil -extract com.apple.security.inherit raw -o - "$RUNNER_TEMP/core-entitlements.plist")" = "true"
+          ! plutil -extract com.apple.security.files.user-selected.read-only raw -o - "$RUNNER_TEMP/core-entitlements.plist" >/dev/null 2>&1
+
       - name: Build App Bundle
         run: bash scripts/build-app.sh
       - name: Verify Bundle
