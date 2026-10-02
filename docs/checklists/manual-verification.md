@@ -120,3 +120,32 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 - [ ] audio node / taskが停止後に増殖しない
 
 数値上限の正本: [RESOURCE_LIMITS.md](../RESOURCE_LIMITS.md)
+
+
+## M. Mac App Store sandbox
+
+Build the smoke bundle:
+
+```bash
+CONFIG=appstore-smoke ./scripts/build-app.sh
+```
+
+- [ ] App bundle contains `PrivacyInfo.xcprivacy`
+- [ ] main app has `com.apple.security.app-sandbox`
+- [ ] main app has `com.apple.security.files.user-selected.read-only`
+- [ ] Rust helper has `com.apple.security.app-sandbox`
+- [ ] Rust helper has `com.apple.security.inherit`
+- [ ] Rust helper does not have broad user-selected file entitlement
+- [ ] Claude folder shows unauthorized on first App Store-mode launch
+- [ ] selecting `~/.claude/projects` enables monitoring
+- [ ] Codex folder shows unauthorized on first App Store-mode launch
+- [ ] selecting `~/.codex/sessions` enables monitoring
+- [ ] authorization survives app relaunch via bookmark
+- [ ] stale bookmark recovery is tested
+- [ ] Revoke stops future monitoring and removes stored authorization
+- [ ] helper cannot read an unselected neighboring folder
+- [ ] no Full Disk Access prompt is shown
+- [ ] no Accessibility / Input Monitoring / Screen Recording prompt is shown
+- [ ] force-quitting the app terminates the helper without affecting Claude/Codex
+
+Full submission checklist: [APP_STORE.md](../APP_STORE.md)
