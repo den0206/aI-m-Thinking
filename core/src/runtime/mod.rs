@@ -9,8 +9,8 @@ use std::time::{Duration, Instant, SystemTime};
 use crate::activity::ActivityEngine;
 use crate::events::{AgentState, NormalizedEvent, ToolClass};
 use crate::ipc::{AgentFlags, AgentKind, AgentRoots, RootGrant, ServerWriter};
-use crate::sandbox::{ScopedRoot, resolve_transfer_bookmark};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
+use crate::sandbox::{ScopedRoot, resolve_transfer_bookmark};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
 use crate::parsers::{ClaudeParser, CodexParser};
 
@@ -602,11 +602,7 @@ mod tests {
 }
 
 
-fn resolve_root_grants(
-    agent: AgentKind,
-    grants: Vec<RootGrant>,
-    enabled: bool,
-) -> Vec<AgentRoot> {
+fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) -> Vec<AgentRoot> {
     grants
         .into_iter()
         .take(MAX_CONFIGURED_ROOTS_PER_AGENT)
