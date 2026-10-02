@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import ImThinking
 
@@ -22,4 +23,24 @@ func higherWritingIntensityProducesFasterCadence() {
     let low = TypingScheduler.keysPerSecond(intensity: 0.25, phase: "writing", toolClass: nil)
     let high = TypingScheduler.keysPerSecond(intensity: 0.85, phase: "writing", toolClass: nil)
     #expect(high > low)
+}
+
+
+@Test @MainActor
+func directRootGrantEncodesOnlyPath() {
+    let grant = AgentRootGrant.direct(URL(fileURLWithPath: "/tmp/claude"))
+    #expect(grant.path == "/tmp/claude")
+    #expect(grant.bookmark == nil)
+    #expect(grant.jsonObject["path"] as? String == "/tmp/claude")
+    #expect(grant.jsonObject["bookmark"] == nil)
+}
+
+@Test
+func bookmarkRootGrantEncodesOnlyBookmark() {
+    let data = Data([0x01, 0x02, 0x03])
+    let grant = AgentRootGrant.bookmark(data)
+    #expect(grant.path == nil)
+    #expect(grant.bookmark == data.base64EncodedString())
+    #expect(grant.jsonObject["path"] == nil)
+    #expect(grant.jsonObject["bookmark"] as? String == data.base64EncodedString())
 }
