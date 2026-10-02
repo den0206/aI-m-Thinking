@@ -64,6 +64,7 @@ where
 
 struct AgentRoot {
     kind: AgentKind,
+    path: PathBuf,
     enabled: bool,
     watcher: Option<FileObserver>,
 }
@@ -97,7 +98,6 @@ impl Parser {
 struct Session {
     handle: u32,
     agent: AgentKind,
-    path: PathBuf,
     file: File,
     cursor: FileCursor,
     parser: Parser,
