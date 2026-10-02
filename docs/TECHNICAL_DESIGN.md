@@ -141,6 +141,8 @@ The displayed percentage, if any, must be labeled **Activity**, not token usage.
 Swift owns:
 
 - menu bar UI
+- distribution mode selection
+- direct root discovery or sandbox user-consent/bookmark management
 - user settings
 - Login Item state
 - sound pack selection
@@ -151,6 +153,8 @@ Swift owns:
 Rust owns:
 
 - filesystem/event monitoring
+- bounded configured root resolution
+- App Store transfer-bookmark resolution/security-scope lifetime
 - transcript/rollout tailing
 - JSONL framing
 - selective parsing
@@ -607,7 +611,14 @@ App → Core:
     "claude": true,
     "codex": true
   },
-  "extra_roots": []
+  "roots": {
+    "claude": [
+      {"path": "/Users/example/.claude/projects", "bookmark": null}
+    ],
+    "codex": [
+      {"path": null, "bookmark": "BASE64_BOOKMARK_DATA"}
+    ]
+  }
 }
 ```
 
