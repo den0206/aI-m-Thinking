@@ -13,54 +13,60 @@ During initial development, work is committed directly to `main`. Commits are gr
 | Phase 0 | Contracts and implementation rules | Complete | `fd938fa` |
 | Phase 1 | JSONL infrastructure | Complete | `82da5fc` + CI fixes |
 | Phase 2 | Claude/Codex parsers | Complete | `0c3655d` + CI fixes |
-| Phase 3 | State + Activity Engine | Complete | this commit |
-| Phase 4 | IPC + macOS menu bar | Not started | - |
+| Phase 3 | State + Activity Engine | Complete | `92c0eb4` + CI fixes |
+| Phase 4 | IPC + macOS menu bar | Complete | this commit |
 | Phase 5 | Sound engine | Not started | - |
 | Phase 6 | Real-agent integration | Not started | - |
 | Phase 7 | Hardening | Not started | - |
 
-## Phase 1 — Complete
-
-Bounded, read-only JSONL framing and event-driven filesystem observation.
-
-## Phase 2 — Complete
-
-Content-free normalized events and tolerant Claude/Codex semantic parsers. macOS CI is green through commit `7c979cc`.
-
 ## Phase 3 — Complete
 
-Implemented the pure Rust state/activity layer:
+State reducer and Activity Velocity are implemented and validated by macOS CI. The phase also removed a flaky temp-fixture collision discovered by parallel CI.
 
-- deterministic IDLE / THINKING / WRITING / TOOL reducer
-- bounded parallel tool tracking
-- anonymous ToolEnd fallback
-- reasoning/writing/mutation impulses
-- usage interval tracking capped at four samples
-- realtime vs sparse token cadence classification
-- first usage interval treated as unknown rather than a false token-rate sample
-- reasoning/output token-rate normalization
-- state freshness decay
-- confidence weighting
-- 120 ms rise / 550 ms fall asymmetric smoothing
-- shell/read/search tool states naturally decay to silence
-- mutation tools receive only a short bounded impulse
-- deterministic tests use caller-supplied monotonic `Duration` values
+## Phase 4 — Complete
 
-No Swift, UI, or audio code is included in this phase.
+Implemented the process boundary and minimal macOS shell without audio:
+
+### Rust core IPC
+
+- executable `im-thinking-core`
+- protocol v1 `hello -> configure -> ready` handshake
+- `ping/pong`, `set_agent_enabled`, `rescan`, and graceful `shutdown`
+- bounded 32 KiB stdin command records
+- oversized-command recovery
+- malformed-command recovery
+- explicit protocol-version failure
+- stdout reserved for NDJSON protocol
+- stdin EOF exits the core, preventing an orphan child
+- no transcript path/session/user content in IPC messages
+
+### Swift menu-bar app
+
+- SwiftUI `MenuBarExtra` for macOS 13+
+- `CoreBridge` owns a Rust child `Process`
+- bundled auxiliary executable lookup with `IM_THINKING_CORE_PATH` development override
+- handshake/configure handling
+- bounded stdout buffer
+- unexpected core termination detection
+- manual monitor restart
+- minimal Claude/Codex state rows
+- no audio code yet
 
 ### Validation
 
-Phase 3 is complete after the macOS Core workflow passes format, tests, and Clippy.
+Phase 4 is complete after both workflows are green:
 
-## Next: Phase 4
+- Core: format, tests, Clippy
+- App: `swift build --package-path app`
 
-Implement IPC v1 plus the minimal macOS menu-bar shell:
+## Next: Phase 5
 
-- Rust child-process protocol messages
-- handshake / configure / shutdown
-- Swift CoreBridge
-- menu-bar state display only
-- core crash detection / restart
-- no audio yet
+Implement audio only:
 
-The Swift side must never receive real transcript paths or real Claude/Codex session identifiers.
+- Sound Pack model
+- AVAudioEngine voice pool
+- bounded queue / maximum four voices
+- Activity Velocity -> typing cadence
+- volume / mute
+- selectable Mechanical Clicky, Mechanical Thock, Laptop, Typewriter, Soft
+- no agent-observation changes in Phase 5
