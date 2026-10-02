@@ -576,30 +576,6 @@ fn discover_jsonl(root: &Path) -> Vec<(PathBuf, SystemTime)> {
     found
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn discovery_only_returns_jsonl_files() {
-        let root = std::env::temp_dir().join(format!("im-thinking-runtime-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(root.join("nested")).unwrap();
-        fs::write(root.join("a.jsonl"), b"{}\n").unwrap();
-        fs::write(root.join("ignore.txt"), b"x").unwrap();
-        fs::write(root.join("nested/b.jsonl"), b"{}\n").unwrap();
-
-        let files = discover_jsonl(&root);
-        assert_eq!(files.len(), 2);
-        assert!(
-            files
-                .iter()
-                .all(|(path, _)| path.extension().unwrap() == "jsonl")
-        );
-
-        let _ = fs::remove_dir_all(root);
-    }
-}
 
 fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) -> Vec<AgentRoot> {
     grants
@@ -631,4 +607,29 @@ fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) 
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_only_returns_jsonl_files() {
+        let root = std::env::temp_dir().join(format!("im-thinking-runtime-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("a.jsonl"), b"{}\n").unwrap();
+        fs::write(root.join("ignore.txt"), b"x").unwrap();
+        fs::write(root.join("nested/b.jsonl"), b"{}\n").unwrap();
+
+        let files = discover_jsonl(&root);
+        assert_eq!(files.len(), 2);
+        assert!(
+            files
+                .iter()
+                .all(|(path, _)| path.extension().unwrap() == "jsonl")
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
 }
