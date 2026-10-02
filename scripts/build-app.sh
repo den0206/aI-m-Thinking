@@ -12,14 +12,25 @@ case "$CONFIG" in
     APP_NAME="I'm Thinking Debug"
     BUNDLE_ID="com.den0206.ImThinking.debug"
     CORE_DIR="debug"
+    SWIFT_CONFIG="debug"
+    DISTRIBUTION="direct"
     ;;
   release)
     APP_NAME="I'm Thinking"
     BUNDLE_ID="com.den0206.ImThinking"
     CORE_DIR="release"
+    SWIFT_CONFIG="release"
+    DISTRIBUTION="direct"
+    ;;
+  appstore-smoke)
+    APP_NAME="I'm Thinking App Store Smoke"
+    BUNDLE_ID="com.den0206.ImThinking.appstore-smoke"
+    CORE_DIR="release"
+    SWIFT_CONFIG="release"
+    DISTRIBUTION="app-store"
     ;;
   *)
-    echo "CONFIG must be 'debug' or 'release'" >&2
+    echo "CONFIG must be 'debug', 'release', or 'appstore-smoke'" >&2
     exit 2
     ;;
 esac
@@ -32,14 +43,14 @@ MACOS="$CONTENTS/MacOS"
 rm -rf "$APP"
 mkdir -p "$MACOS"
 
-if [[ "$CONFIG" == "release" ]]; then
+if [[ "$CORE_DIR" == "release" ]]; then
   cargo build --manifest-path "$ROOT/core/Cargo.toml" --release
 else
   cargo build --manifest-path "$ROOT/core/Cargo.toml"
 fi
-swift build --package-path "$ROOT/app" -c "$CONFIG" --product ImThinking
+swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --product ImThinking
 
-SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/app" -c "$CONFIG" --show-bin-path)"
+SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --show-bin-path)"
 cp "$SWIFT_BIN_DIR/ImThinking" "$MACOS/ImThinking"
 cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
 chmod 755 "$MACOS/ImThinking" "$MACOS/im-thinking-core"
@@ -73,6 +84,8 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>ImThinkingDistribution</key>
+    <string>$DISTRIBUTION</string>
 </dict>
 </plist>
 PLIST
@@ -83,13 +96,18 @@ if [[ "$SIGN_IDENTITY" != "-" && "$CONFIG" == "release" ]]; then
 fi
 
 # Sign the bundled Rust helper first, then seal the containing app bundle.
-codesign "${CODESIGN_ARGS[@]}" "$MACOS/im-thinking-core"
-
+CORE_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 APP_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
-if [[ "$CONFIG" == "debug" ]]; then
+
+if [[ "$CONFIG" == "appstore-smoke" ]]; then
+  CORE_CODESIGN_ARGS+=(--identifier "$BUNDLE_ID.core")
+  CORE_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/im-thinking-core.appstore.entitlements")
+  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/ImThinking.appstore.entitlements")
+elif [[ "$CONFIG" == "debug" ]]; then
   APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/ImThinking.debug.entitlements")
 fi
 
+codesign "${CORE_CODESIGN_ARGS[@]}" "$MACOS/im-thinking-core"
 codesign "${APP_CODESIGN_ARGS[@]}" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
