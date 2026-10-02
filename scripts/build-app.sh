@@ -11,13 +11,11 @@ case "$CONFIG" in
   debug)
     APP_NAME="I'm Thinking Debug"
     BUNDLE_ID="com.den0206.ImThinking.debug"
-    CARGO_ARGS=()
     CORE_DIR="debug"
     ;;
   release)
     APP_NAME="I'm Thinking"
     BUNDLE_ID="com.den0206.ImThinking"
-    CARGO_ARGS=(--release)
     CORE_DIR="release"
     ;;
   *)
@@ -34,7 +32,11 @@ MACOS="$CONTENTS/MacOS"
 rm -rf "$APP"
 mkdir -p "$MACOS"
 
-cargo build --manifest-path "$ROOT/core/Cargo.toml" "${CARGO_ARGS[@]}"
+if [[ "$CONFIG" == "release" ]]; then
+  cargo build --manifest-path "$ROOT/core/Cargo.toml" --release
+else
+  cargo build --manifest-path "$ROOT/core/Cargo.toml"
+fi
 swift build --package-path "$ROOT/app" -c "$CONFIG" --product ImThinking
 
 SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/app" -c "$CONFIG" --show-bin-path)"
