@@ -26,6 +26,19 @@ pub enum ActivityBasis {
     Mixed,
 }
 
+impl ActivityBasis {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ReasoningUsage => "reasoning_usage",
+            Self::ReasoningRecord => "reasoning_record",
+            Self::TextRecord => "text_record",
+            Self::ToolEvent => "tool_event",
+            Self::StateBaseline => "state_baseline",
+            Self::Mixed => "mixed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ActivitySample {
     pub phase: AgentState,

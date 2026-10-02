@@ -1,8 +1,10 @@
 use std::io::{self, BufReader, BufWriter};
+use std::sync::{Arc, Mutex};
 
 use im_thinking_core::ipc::{
     ClientCommand, LineRead, PROTOCOL_VERSION, ServerWriter, read_bounded_line,
 };
+use im_thinking_core::runtime::{MonitorHandle, spawn_monitor};
 
 fn main() {
     if let Err(error) = run() {
@@ -13,17 +15,19 @@ fn main() {
 
 fn run() -> io::Result<()> {
     let stdin = io::stdin();
-    let stdout = io::stdout();
     let mut input = BufReader::new(stdin.lock());
-    let mut output = ServerWriter::new(BufWriter::new(stdout.lock()));
+    let writer = Arc::new(Mutex::new(ServerWriter::new(BufWriter::new(io::stdout()))));
+    let mut monitor: Option<MonitorHandle> = None;
 
-    output.hello()?;
+    with_writer(&writer, |writer| writer.hello())?;
 
     loop {
         let line = match read_bounded_line(&mut input)? {
             LineRead::Eof => break,
             LineRead::Oversized => {
-                output.error("warning", "IPC1003", "ipc", true)?;
+                with_writer(&writer, |writer| {
+                    writer.error("warning", "IPC1003", "ipc", true)
+                })?;
                 continue;
             }
             LineRead::Data(line) if line.is_empty() => continue,
@@ -33,13 +37,17 @@ fn run() -> io::Result<()> {
         let command: ClientCommand = match serde_json::from_slice(&line) {
             Ok(command) => command,
             Err(_) => {
-                output.error("warning", "IPC1002", "ipc", true)?;
+                with_writer(&writer, |writer| {
+                    writer.error("warning", "IPC1002", "ipc", true)
+                })?;
                 continue;
             }
         };
 
         if command.version() != PROTOCOL_VERSION {
-            output.error("fatal", "IPC1001", "ipc", false)?;
+            with_writer(&writer, |writer| {
+                writer.error("fatal", "IPC1001", "ipc", false)
+            })?;
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "unsupported IPC protocol version",
@@ -52,17 +60,48 @@ fn run() -> io::Result<()> {
                 extra_roots,
                 ..
             } => {
-                let _ = (agents.claude, agents.codex, extra_roots.len());
-                output.ready()?;
+                if !extra_roots.is_empty() {
+                    with_writer(&writer, |writer| {
+                        writer.error("warning", "CFG6003", "config", true)
+                    })?;
+                }
+
+                if let Some(existing) = monitor.take() {
+                    existing.shutdown();
+                }
+                monitor = Some(spawn_monitor(Arc::clone(&writer), agents));
+                with_writer(&writer, |writer| writer.ready())?;
             }
             ClientCommand::SetAgentEnabled { agent, enabled, .. } => {
-                let _ = (agent, enabled);
+                if let Some(monitor) = &monitor {
+                    monitor.set_enabled(agent, enabled);
+                }
             }
-            ClientCommand::Rescan { .. } => {}
-            ClientCommand::Ping { id, .. } => output.pong(id)?,
+            ClientCommand::Rescan { .. } => {
+                if let Some(monitor) = &monitor {
+                    monitor.rescan();
+                }
+            }
+            ClientCommand::Ping { id, .. } => {
+                with_writer(&writer, |writer| writer.pong(id))?;
+            }
             ClientCommand::Shutdown { .. } => break,
         }
     }
 
+    if let Some(monitor) = monitor {
+        monitor.shutdown();
+    }
+
     Ok(())
+}
+
+fn with_writer<W: io::Write>(
+    writer: &Arc<Mutex<ServerWriter<W>>>,
+    action: impl FnOnce(&mut ServerWriter<W>) -> io::Result<()>,
+) -> io::Result<()> {
+    let mut writer = writer
+        .lock()
+        .map_err(|_| io::Error::other("IPC writer lock poisoned"))?;
+    action(&mut writer)
 }

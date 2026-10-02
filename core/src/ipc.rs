@@ -2,6 +2,9 @@ use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
 
+use crate::activity::ActivitySample;
+use crate::events::ToolClass;
+
 pub const PROTOCOL_VERSION: u8 = 1;
 pub const MAX_IPC_RECORD_BYTES: usize = 32 * 1024;
 
@@ -10,6 +13,15 @@ pub const MAX_IPC_RECORD_BYTES: usize = 32 * 1024;
 pub enum AgentKind {
     Claude,
     Codex,
+}
+
+impl AgentKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -58,7 +70,7 @@ impl ClientCommand {
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-enum ServerMessage {
+enum ServerMessage<'a> {
     Hello {
         v: u8,
         seq: u64,
@@ -76,12 +88,42 @@ enum ServerMessage {
         seq: u64,
         id: u64,
     },
+    ObserverStatus {
+        v: u8,
+        seq: u64,
+        agent: &'static str,
+        status: &'static str,
+    },
+    SessionOpened {
+        v: u8,
+        seq: u64,
+        session: u32,
+        agent: &'static str,
+    },
+    SessionClosed {
+        v: u8,
+        seq: u64,
+        session: u32,
+        agent: &'static str,
+    },
+    Activity {
+        v: u8,
+        seq: u64,
+        session: u32,
+        agent: &'static str,
+        phase: &'static str,
+        intensity: f32,
+        confidence: &'static str,
+        tool_class: Option<&'static str>,
+        basis: &'static str,
+        at_ms: u64,
+    },
     Error {
         v: u8,
         seq: u64,
         severity: &'static str,
         code: &'static str,
-        component: &'static str,
+        component: &'a str,
         recoverable: bool,
     },
 }
@@ -125,11 +167,68 @@ impl<W: Write> ServerWriter<W> {
         })
     }
 
+    pub fn observer_status(
+        &mut self,
+        agent: AgentKind,
+        status: &'static str,
+    ) -> io::Result<()> {
+        let seq = self.next_seq();
+        self.write(ServerMessage::ObserverStatus {
+            v: PROTOCOL_VERSION,
+            seq,
+            agent: agent.as_str(),
+            status,
+        })
+    }
+
+    pub fn session_opened(&mut self, session: u32, agent: AgentKind) -> io::Result<()> {
+        let seq = self.next_seq();
+        self.write(ServerMessage::SessionOpened {
+            v: PROTOCOL_VERSION,
+            seq,
+            session,
+            agent: agent.as_str(),
+        })
+    }
+
+    pub fn session_closed(&mut self, session: u32, agent: AgentKind) -> io::Result<()> {
+        let seq = self.next_seq();
+        self.write(ServerMessage::SessionClosed {
+            v: PROTOCOL_VERSION,
+            seq,
+            session,
+            agent: agent.as_str(),
+        })
+    }
+
+    pub fn activity(
+        &mut self,
+        session: u32,
+        agent: AgentKind,
+        sample: ActivitySample,
+        tool_class: Option<ToolClass>,
+        at_ms: u64,
+    ) -> io::Result<()> {
+        let seq = self.next_seq();
+        self.write(ServerMessage::Activity {
+            v: PROTOCOL_VERSION,
+            seq,
+            session,
+            agent: agent.as_str(),
+            phase: sample.phase.as_str(),
+            intensity: sample.intensity,
+            confidence: sample.confidence.as_str(),
+            tool_class: tool_class.map(ToolClass::as_str),
+            basis: sample.basis.as_str(),
+            at_ms,
+        })
+    }
+
     pub fn error(
         &mut self,
         severity: &'static str,
         code: &'static str,
-        component: &'static str,
+        component: &str,
         recoverable: bool,
     ) -> io::Result<()> {
         let seq = self.next_seq();
@@ -148,7 +247,7 @@ impl<W: Write> ServerWriter<W> {
         self.seq
     }
 
-    fn write(&mut self, message: ServerMessage) -> io::Result<()> {
+    fn write(&mut self, message: ServerMessage<'_>) -> io::Result<()> {
         serde_json::to_writer(&mut self.writer, &message).map_err(io::Error::other)?;
         self.writer.write_all(b"\n")?;
         self.writer.flush()
@@ -216,14 +315,29 @@ mod tests {
     }
 
     #[test]
-    fn hello_contains_no_agent_content() {
+    fn activity_message_contains_only_metadata() {
         let mut output = Vec::new();
         let mut writer = ServerWriter::new(&mut output);
-        writer.hello().unwrap();
+        writer
+            .activity(
+                7,
+                AgentKind::Codex,
+                ActivitySample {
+                    phase: crate::events::AgentState::Thinking,
+                    intensity: 0.5,
+                    confidence: crate::events::Confidence::High,
+                    basis: crate::activity::ActivityBasis::ReasoningUsage,
+                },
+                None,
+                120,
+            )
+            .unwrap();
 
         let text = String::from_utf8(output).unwrap();
-        assert!(text.contains("\"type\":\"hello\""));
-        assert!(!text.contains("session"));
+        assert!(text.contains("\"session\":7"));
+        assert!(text.contains("\"agent\":\"codex\""));
         assert!(!text.contains("path"));
+        assert!(!text.contains("prompt"));
+        assert!(!text.contains("reasoning_text"));
     }
 }

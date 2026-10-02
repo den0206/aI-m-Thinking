@@ -15,51 +15,64 @@ During initial development, work is committed directly to `main`. Commits are gr
 | Phase 2 | Claude/Codex parsers | Complete | `0c3655d` + CI fixes |
 | Phase 3 | State + Activity Engine | Complete | `92c0eb4` + CI fixes |
 | Phase 4 | IPC + macOS menu bar | Complete | `6d01945` |
-| Phase 5 | Sound engine | Complete | this commit |
-| Phase 6 | Real-agent integration | Not started | - |
+| Phase 5 | Sound engine | Complete | `ee9a924` + test fix |
+| Phase 6 | Real-agent integration | Complete | this commit |
 | Phase 7 | Hardening | Not started | - |
-
-## Phase 4 — Complete
-
-Rust protocol executable and Swift menu-bar shell both pass their macOS CI workflows.
 
 ## Phase 5 — Complete
 
-Implemented audio without adding external sound assets:
+Five synthesized keyboard sound packs, bounded four-voice playback, one-event-ahead scheduler, volume/mute persistence, and cadence tests are green in App CI.
 
-- five selectable sound packs
-- short PCM sounds synthesized from per-pack profiles
-- only the selected pack is retained as decoded buffers
-- four AVAudioPlayerNode voices
-- no unbounded audio request queue
-- at most one future typing event scheduled by the cadence scheduler
-- Activity Velocity mapping capped at 15 keys/sec
-- THINKING uses slower irregular cadence
-- WRITING uses normal cadence
-- TOOL is silent unless it is a mutation tool
-- volume and mute persisted in UserDefaults
-- sound selection persisted in UserDefaults
-- preview control
-- multiple agent sessions are combined using max intensity, never summed
-- Swift unit coverage for sound-pack count and cadence bounds
+## Phase 6 — Complete
 
-No Claude/Codex observation logic changes are included in this phase.
+Implemented passive real-agent observation in the Rust core:
+
+- default Claude root: `~/.claude/projects`
+- default Codex root: `~/.codex/sessions`
+- recursive native filesystem observation
+- create and modify events distinguished
+- startup scans metadata only and baselines recent existing JSONL files at EOF
+- historical transcript bodies are never replayed at startup
+- new JSONL files are observed from byte zero
+- existing files are tailed only from their stored baseline
+- unknown pre-existing files are baselined at current EOF rather than replayed
+- maximum 256 baseline cursors and 64 active sessions
+- maximum 4096 discovery entries per rescan
+- existing 512 KiB per-file scan budget retained
+- dirty sessions continue scanning across timer ticks without requiring another filesystem event
+- Claude/Codex parsers feed the common Activity Engine
+- ephemeral `u32` session handles only
+- `session_opened`, `session_closed`, `observer_status`, and `activity` IPC messages
+- activity emitted at the existing 100 ms core cadence
+- shell/read/search tool execution naturally emits no typing audio
+- idle sessions can be evicted when the 64-session active bound is reached
+- monitor is a child-owned thread and shuts down when Core shuts down
+- normal `claude` / `codex` commands are unchanged
+- no alias, wrapper, shell rc, Claude settings, or Codex settings modifications
+
+### Known Phase 6 boundary
+
+If a very old pre-existing session is outside the bounded startup baseline set and is resumed later, the first append is deliberately skipped and establishes an EOF baseline. Subsequent appends are observed. This preserves the no-history-replay and bounded-memory guarantees.
 
 ### Validation
 
-Phase 5 is complete after App CI passes both:
+Phase 6 is complete after Core CI passes:
 
-- `swift build --package-path app`
-- `swift test --package-path app`
+- `cargo fmt --check`
+- `cargo test`
+- `cargo clippy --all-targets -- -D warnings`
 
-## Next: Phase 6
+Real installed-agent smoke testing and resource/failure stress testing remain Phase 7.
 
-Wire real passive observation to IPC:
+## Next: Phase 7
 
-- discover/tail Claude and Codex session files
-- create ephemeral session handles
-- parse only appended records
-- reduce state + activity
-- emit bounded `activity/session_opened/session_closed/observer_status`
-- preserve normal `claude` / `codex` launch behavior
-- no wrapper, alias, shell modification, or agent configuration changes
+Hardening:
+
+- large JSONL/RSS stress tests
+- many-session stress
+- watcher failure/recovery
+- app/core kill behavior
+- sleep/wake and rescan
+- packaging the Rust auxiliary executable into the macOS app
+- on-device smoke tests with current Claude Code and Codex
+- Start at Login

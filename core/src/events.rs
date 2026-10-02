@@ -5,12 +5,33 @@ pub enum Confidence {
     Low,
 }
 
+impl Confidence {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::High => "high",
+            Self::Medium => "medium",
+            Self::Low => "low",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentState {
     Idle,
     Thinking,
     Writing,
     Tool,
+}
+
+impl AgentState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Thinking => "thinking",
+            Self::Writing => "writing",
+            Self::Tool => "tool",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +43,20 @@ pub enum ToolClass {
     SubAgent,
     Mcp,
     Generic,
+}
+
+impl ToolClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mutation => "mutation",
+            Self::Shell => "shell",
+            Self::Read => "read",
+            Self::Search => "search",
+            Self::SubAgent => "subagent",
+            Self::Mcp => "mcp",
+            Self::Generic => "generic",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

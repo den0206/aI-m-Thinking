@@ -5,7 +5,8 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChangeKind {
-    CreateOrModify,
+    Create,
+    Modify,
     RemoveOrRename,
     Other,
 }
@@ -26,12 +27,12 @@ impl FileObserver {
     pub fn watch(root: &Path, sender: Sender<ChangeEvent>) -> notify::Result<Self> {
         let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
             let Ok(event) = result else {
-                // Health/error reporting is added with the IPC layer in Phase 4.
                 return;
             };
 
             let kind = match event.kind {
-                EventKind::Create(_) | EventKind::Modify(_) => ChangeKind::CreateOrModify,
+                EventKind::Create(_) => ChangeKind::Create,
+                EventKind::Modify(_) => ChangeKind::Modify,
                 EventKind::Remove(_) => ChangeKind::RemoveOrRename,
                 _ => ChangeKind::Other,
             };
