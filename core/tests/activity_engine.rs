@@ -186,3 +186,47 @@ fn turn_end_returns_to_idle() {
     engine.apply(&NormalizedEvent::TurnEnd, ms(100));
     assert_eq!(engine.sample(ms(200)).phase, AgentState::Idle);
 }
+
+#[test]
+fn realtime_usage_score_decays_after_updates_stop() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+    for step in 1..6 {
+        engine.apply(
+            &NormalizedEvent::UsagePulse {
+                output_tokens: 30,
+                reasoning_tokens: 30,
+            },
+            ms(500 * step),
+        );
+    }
+    assert_eq!(engine.usage_cadence(), UsageCadence::Realtime);
+    assert!(engine.sample(ms(2600)).intensity > 0.3);
+
+    let mut intensity = 1.0;
+    for now in (2700..10_000).step_by(100) {
+        intensity = engine.sample(ms(now)).intensity;
+    }
+    assert!(intensity < 0.005, "intensity stayed at {intensity}");
+}
+
+#[test]
+fn stale_turn_expires_to_idle() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+    engine.apply(
+        &NormalizedEvent::ToolStart {
+            id: ToolKey::new("long"),
+            class: ToolClass::Shell,
+        },
+        ms(100),
+    );
+
+    assert!(!engine.expire_stale_turn(ms(59_000), ms(60_000)));
+    assert_eq!(engine.state().phase(), AgentState::Tool);
+
+    assert!(engine.expire_stale_turn(ms(60_100), ms(60_000)));
+    assert_eq!(engine.state().phase(), AgentState::Idle);
+    assert_eq!(engine.state().active_tool_count(), 0);
+    assert!(!engine.expire_stale_turn(ms(200_000), ms(60_000)));
+}

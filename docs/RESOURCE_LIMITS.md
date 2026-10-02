@@ -15,7 +15,15 @@ const FILE_SCAN_BUDGET: usize = 512 * 1024;
 
 const ACTIVITY_INTERVAL_MS: u64 = 100;
 const MAX_IPC_RECORD_BYTES: usize = 32 * 1024;
+
+const MAX_BASELINES_PER_AGENT: usize = 4096;
+const STALE_TURN_TIMEOUT_SECS: u64 = 600;
 ```
+
+- File notifications and app commands share one bounded queue of `MAX_ACTIVITY_QUEUE` entries. When it is full, notifications are dropped, every tracked session is re-checked, and `ACT4004` is reported.
+- Startup baselines are recorded from directory metadata, newest files first. When the per-agent budget is full, the least recently baselined file is forgotten so a newly active file can always be tracked.
+- Activity is emitted at most every `ACTIVITY_INTERVAL_MS` per session, except phase changes. A session that falls silent emits one zero-intensity update and then stops; the monitor thread blocks until the next file event when no session needs sampling.
+- A turn with no signal for `STALE_TURN_TIMEOUT_SECS` is closed to IDLE so interrupted sessions do not stay active or block eviction.
 
 ## Audio limits
 

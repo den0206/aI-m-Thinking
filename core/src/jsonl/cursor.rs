@@ -58,6 +58,18 @@ impl FileCursor {
         ))
     }
 
+    /// Starts at the EOF described by already-fetched metadata, avoiding an
+    /// extra open when many existing files are baselined at once.
+    pub fn baseline_from_metadata(metadata: &Metadata) -> Self {
+        let eof = metadata.len();
+        Self {
+            identity: FileIdentity::from_metadata(metadata),
+            record_start: eof,
+            scan_offset: eof,
+            committed_offset: eof,
+        }
+    }
+
     /// Creates a cursor for a newly-created file that should be observed from byte zero.
     pub fn from_start(file: &File) -> io::Result<Self> {
         let metadata = file.metadata()?;
