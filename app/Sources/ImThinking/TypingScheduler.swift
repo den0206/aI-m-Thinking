@@ -38,7 +38,7 @@ final class TypingScheduler {
         scheduled = false
     }
 
-    static func keysPerSecond(
+    nonisolated static func keysPerSecond(
         intensity: Double,
         phase: String,
         toolClass: String?
