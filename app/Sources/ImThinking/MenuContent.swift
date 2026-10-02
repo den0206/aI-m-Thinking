@@ -17,6 +17,23 @@ struct MenuContent: View {
             agentRow(name: "Claude Code", state: model.claudeState)
             agentRow(name: "Codex", state: model.codexState)
 
+            if model.requiresFolderAuthorization {
+                Divider()
+
+                Text("Agent Folder Access")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                folderAccessRow(
+                    service: .claude,
+                    authorized: model.claudeFolderAuthorized
+                )
+                folderAccessRow(
+                    service: .codex,
+                    authorized: model.codexFolderAuthorized
+                )
+            }
+
             Divider()
 
             Picker(
@@ -105,6 +122,26 @@ struct MenuContent: View {
             Spacer()
             Text(state)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func folderAccessRow(service: AgentService, authorized: Bool) -> some View {
+        HStack {
+            Text(service.displayName)
+            Spacer()
+
+            if authorized {
+                Text("Allowed")
+                    .foregroundStyle(.secondary)
+
+                Button("Revoke") {
+                    model.revokeFolder(for: service)
+                }
+            } else {
+                Button("Choose Folder…") {
+                    model.authorizeFolder(for: service)
+                }
+            }
         }
     }
 }
