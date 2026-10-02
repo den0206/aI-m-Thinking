@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Run I'm Thinking Debug.app",
+      "program": "${workspaceFolder}/.build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build I'm Thinking Debug.app"
+    }
+  ]
+}
