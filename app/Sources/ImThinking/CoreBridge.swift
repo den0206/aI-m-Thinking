@@ -20,6 +20,7 @@ enum CoreStatus: Equatable {
     }
 }
 
+@MainActor
 final class CoreBridge {
     var onMessage: ((CoreMessage) -> Void)?
     var onStatus: ((CoreStatus) -> Void)?
@@ -55,11 +56,14 @@ final class CoreBridge {
                 handle.readabilityHandler = nil
                 return
             }
-            self?.consume(data)
+
+            Task { @MainActor [weak self] in
+                self?.consume(data)
+            }
         }
 
         process.terminationHandler = { [weak self] _ in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.process = nil
                 self.input = nil
@@ -83,7 +87,9 @@ final class CoreBridge {
 
     func restart() {
         stop(force: true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(200))
             self?.start()
         }
     }
@@ -108,11 +114,9 @@ final class CoreBridge {
     private func consume(_ data: Data) {
         outputBuffer.append(data)
 
-        if outputBuffer.count > 64 * 1024 {
+        guard outputBuffer.count <= 64 * 1024 else {
             outputBuffer.removeAll(keepingCapacity: false)
-            DispatchQueue.main.async { [weak self] in
-                self?.onStatus?(.failed("IPC_BUFFER"))
-            }
+            onStatus?(.failed("IPC_BUFFER"))
             return
         }
 
@@ -127,9 +131,7 @@ final class CoreBridge {
                 continue
             }
 
-            DispatchQueue.main.async { [weak self] in
-                self?.handle(message)
-            }
+            handle(message)
         }
     }
 
@@ -182,17 +184,8 @@ final class CoreBridge {
             return URL(fileURLWithPath: override)
         }
 
-        if let bundled = Bundle.main.url(forAuxiliaryExecutable: "im-thinking-core"),
-           FileManager.default.isExecutableFile(atPath: bundled.path) {
-            return bundled
-        }
-
-        let macOSExecutable = Bundle.main.bundleURL
+        let bundled = Bundle.main.bundleURL
             .appendingPathComponent("Contents/MacOS/im-thinking-core")
-        if FileManager.default.isExecutableFile(atPath: macOSExecutable.path) {
-            return macOSExecutable
-        }
-
-        return nil
+        return FileManager.default.isExecutableFile(atPath: bundled.path) ? bundled : nil
     }
 }
