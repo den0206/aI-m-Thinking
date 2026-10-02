@@ -16,9 +16,9 @@ enum AgentService: String, CaseIterable {
         let home = FileManager.default.homeDirectoryForCurrentUser
         switch self {
         case .claude:
-            home.appending(path: ".claude/projects", directoryHint: .isDirectory)
+            return home.appending(path: ".claude/projects", directoryHint: .isDirectory)
         case .codex:
-            home.appending(path: ".codex/sessions", directoryHint: .isDirectory)
+            return home.appending(path: ".codex/sessions", directoryHint: .isDirectory)
         }
     }
 }
