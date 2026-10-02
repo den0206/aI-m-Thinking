@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Toolchain
-        run: swift --version
+        run: |
+          swift --version
+          swift --version | grep -q "Apple Swift version 6.4"
       - name: Build
         run: swift build --package-path app
       - name: Test
