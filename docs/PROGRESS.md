@@ -70,6 +70,8 @@ Release secrets are intentionally mandatory for the public release workflow so a
 
 The release workflow is implemented but has not been exercised with a real `vX.Y.Z` tag and Apple signing/notarization secrets. That remains a release-candidate verification item rather than an implementation gap.
 
+Latest distribution/development CI: `37017158952` — Swift build/tests, Debug app bundle, Release app bundle, bundle validation, and test DMG packaging all passed.
+
 ## Phase 6 — Complete
 
 Normal `claude` and `codex` usage passively feeds the observer/parser/activity/IPC/audio pipeline without altering agent or shell configuration.
