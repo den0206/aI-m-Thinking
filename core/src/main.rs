@@ -55,24 +55,14 @@ fn run() -> io::Result<()> {
         }
 
         match command {
-            ClientCommand::Configure {
-                agents,
-                extra_roots,
-                ..
-            } => {
-                if !extra_roots.is_empty() {
-                    with_writer(&writer, |writer| {
-                        writer.error("warning", "CFG6003", "config", true)
-                    })?;
-                }
-
+            ClientCommand::Configure { agents, roots, .. } => {
                 if let Some(existing) = monitor.take() {
                     existing.shutdown();
                 }
 
                 // Complete the handshake before observer/session events can be emitted.
                 with_writer(&writer, |writer| writer.ready())?;
-                monitor = Some(spawn_monitor(Arc::clone(&writer), agents));
+                monitor = Some(spawn_monitor(Arc::clone(&writer), agents, roots));
             }
             ClientCommand::SetAgentEnabled { agent, enabled, .. } => {
                 if let Some(monitor) = &monitor {
