@@ -6,6 +6,14 @@ pub enum Confidence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentState {
+    Idle,
+    Thinking,
+    Writing,
+    Tool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolClass {
     Mutation,
     Shell,
