@@ -1000,42 +1000,109 @@ DoD:
 - bounded memory/queues remain within limits
 - monitoring degrades gracefully when an agent format changes
 
-## 20. Proposed repository layout
+## 20. Repository / development / distribution layout
+
+The v1 implementation uses a deliberately small Swift + Rust split:
 
 ```text
 I-m-Thinking/
 ├── app/
-│   └── ImThinking/
-│       ├── App/
-│       ├── MenuBar/
-│       ├── CoreBridge/
-│       ├── Audio/
-│       ├── SoundPacks/
-│       └── Settings/
-│
+│   ├── Package.swift
+│   ├── Resources/
+│   │   └── ImThinking.debug.entitlements
+│   ├── Sources/ImThinking/
+│   │   ├── ImThinkingApp.swift
+│   │   ├── AppModel.swift
+│   │   ├── MenuContent.swift
+│   │   ├── CoreBridge.swift
+│   │   ├── CoreMessage.swift
+│   │   ├── KeyboardAudioEngine.swift
+│   │   ├── SoundPack.swift
+│   │   ├── SoundSynthesizer.swift
+│   │   ├── TypingScheduler.swift
+│   │   └── LoginItemManager.swift
+│   └── Tests/ImThinkingTests/
 ├── core/
 │   ├── Cargo.toml
-│   └── src/
-│       ├── observers/
-│       │   ├── claude/
-│       │   └── codex/
-│       ├── jsonl/
-│       ├── activity/
-│       ├── process/
-│       ├── ipc/
-│       └── main.rs
-│
-├── sounds/
-├── tests/
-│   ├── fixtures/
-│   ├── parser/
-│   ├── activity/
-│   ├── memory/
-│   └── integration/
-│
-└── docs/
-    └── TECHNICAL_DESIGN.md
+│   ├── src/
+│   │   ├── activity/
+│   │   ├── jsonl/
+│   │   ├── observer/
+│   │   ├── parsers/
+│   │   ├── runtime/
+│   │   ├── events.rs
+│   │   ├── ipc.rs
+│   │   ├── lib.rs
+│   │   └── main.rs
+│   └── tests/
+│       └── fixtures/
+├── scripts/
+│   ├── build-app.sh
+│   └── make-dmg.sh
+├── .vscode/
+│   ├── launch.json
+│   ├── tasks.json
+│   └── extensions.json
+├── .github/workflows/
+│   ├── core.yml
+│   ├── app.yml
+│   └── release.yml
+├── docs/
+│   ├── DEVELOPMENT.md
+│   ├── RELEASE.md
+│   ├── TECHNICAL_DESIGN.md
+│   ├── PROTOCOL.md
+│   ├── PARSER_RULES.md
+│   ├── NORMALIZED_EVENTS.md
+│   ├── RESOURCE_LIMITS.md
+│   ├── PROGRESS.md
+│   └── checklists/manual-verification.md
+├── CHANGELOG.md
+└── README.md
 ```
+
+### Debug build
+
+VS Code and Cursor use the same checked-in CodeLLDB configuration.
+
+```text
+I'm Thinking Debug.app
+bundle id: com.den0206.ImThinking.debug
+output: .build/debug/
+```
+
+The real app bundle is built before LLDB launches the Swift executable. This keeps `Info.plist`, bundled Rust Core lookup, MenuBarExtra, and SMAppService behavior close to release behavior.
+
+The debug app alone receives `com.apple.security.get-task-allow`. The release app never receives this entitlement.
+
+### Release build
+
+```text
+I'm Thinking.app
+bundle id: com.den0206.ImThinking
+output: .build/release/
+```
+
+The release pipeline is intentionally same-repository:
+
+```text
+vX.Y.Z tag
+  -> tests
+  -> Developer ID signing
+  -> app notarize + staple
+  -> DMG creation
+  -> DMG signing
+  -> DMG notarize + staple
+  -> GitHub Release in den0206/I-m-Thinking
+```
+
+No dedicated release repository, self-update mechanism, or release-specific runtime service is part of v1.
+
+Development and release operational details are normative in:
+
+- `docs/DEVELOPMENT.md`
+- `docs/RELEASE.md`
+- `docs/checklists/manual-verification.md`
 
 ## 21. v1 completion criteria
 
