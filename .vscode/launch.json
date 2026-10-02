@@ -8,6 +8,14 @@
       "program": "${workspaceFolder}/.build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking",
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build I'm Thinking Debug.app"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Run Rust Core",
+      "program": "${workspaceFolder}/core/target/debug/im-thinking-core",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build Rust Core"
     }
   ]
 }
