@@ -33,9 +33,15 @@ pub struct AgentFlags {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct AgentRoots {
     #[serde(default)]
-    pub claude: Vec<String>,
+    pub claude: Vec<RootGrant>,
     #[serde(default)]
-    pub codex: Vec<String>,
+    pub codex: Vec<RootGrant>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RootGrant {
+    pub path: Option<String>,
+    pub bookmark: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
