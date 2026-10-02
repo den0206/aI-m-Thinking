@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 
+@MainActor
 final class KeyboardAudioEngine {
     private let engine = AVAudioEngine()
     private let voices: [AVAudioPlayerNode]
