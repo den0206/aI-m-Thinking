@@ -1,0 +1,7 @@
+{"type":"user","timestamp":"2026-10-02T10:00:00.000Z","origin":{"kind":"human"},"promptSource":"sdk","message":{"role":"user","content":"task"}}
+{"type":"assistant","timestamp":"2026-10-02T10:00:03.000Z","message":{"id":"msg_1","role":"assistant","stop_reason":"tool_use","content":[{"type":"thinking","thinking":"ignored","signature":"ignored"}]}}
+{"type":"assistant","timestamp":"2026-10-02T10:00:04.000Z","message":{"id":"msg_1","role":"assistant","stop_reason":"tool_use","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ignored"}}]}}
+{"type":"user","timestamp":"2026-10-02T10:00:05.000Z","toolUseResult":{"stdout":"ignored"},"sourceToolAssistantUUID":"ignored","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ignored"}]}}
+{"type":"assistant","timestamp":"2026-10-02T10:00:09.000Z","message":{"id":"msg_2","role":"assistant","stop_reason":"end_turn","content":[{"type":"thinking","thinking":"ignored"}]}}
+{"type":"assistant","timestamp":"2026-10-02T10:00:10.000Z","message":{"id":"msg_2","role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"ignored"}]}}
+{"type":"system","timestamp":"2026-10-02T10:00:10.100Z","subtype":"stop_hook_summary","level":"suggestion"}

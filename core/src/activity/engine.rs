@@ -8,6 +8,14 @@ const MAX_USAGE_INTERVALS: usize = 4;
 const REALTIME_USAGE_MAX_INTERVAL: Duration = Duration::from_millis(1500);
 const RISE_TAU_MS: f32 = 120.0;
 const FALL_TAU_MS: f32 = 550.0;
+/// While output is pending, activity holds steady this long after the last
+/// signal. Measured Claude Code gaps between a prompt or tool result and the
+/// next transcript record: median 5 s, p90 33 s, max 59 s.
+const PENDING_HOLD: Duration = Duration::from_secs(60);
+/// Pending activity fades out by this age, bounding a turn that ended
+/// without a turn-end record.
+const PENDING_END: Duration = Duration::from_secs(120);
+const RECENT_SIGNAL: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsageCadence {
@@ -75,6 +83,9 @@ pub struct ActivityEngine {
     basis: ActivityBasis,
     smoothed: f32,
     last_sample_at: Duration,
+    /// Set while the latest events came from history; the state baseline stays
+    /// silent until a live event arrives.
+    history_only: bool,
 }
 
 impl ActivityEngine {
@@ -92,6 +103,7 @@ impl ActivityEngine {
             basis: ActivityBasis::StateBaseline,
             smoothed: 0.0,
             last_sample_at: now,
+            history_only: false,
         }
     }
 
@@ -116,6 +128,7 @@ impl ActivityEngine {
     }
 
     pub fn apply(&mut self, event: &NormalizedEvent, now: Duration) {
+        self.history_only = false;
         self.state.apply(event);
 
         match event {
@@ -261,7 +274,29 @@ impl ActivityEngine {
         self.last_signal_at = now;
     }
 
+    /// Applies an event from a record written long before it was observed,
+    /// such as a restored or replayed transcript. State is updated, but no
+    /// sound is produced for work that already finished.
+    pub fn apply_history(&mut self, event: &NormalizedEvent) {
+        self.history_only = true;
+        self.state.apply_history(event);
+    }
+
     fn state_baseline(&self, now: Duration) -> f32 {
+        if self.history_only {
+            return 0.0;
+        }
+
+        let age = now.saturating_sub(self.last_signal_at);
+        if self.state.awaiting_model() {
+            let level = match self.state.phase() {
+                AgentState::Writing => 0.35,
+                AgentState::Thinking => 0.30,
+                AgentState::Idle | AgentState::Tool => 0.0,
+            };
+            return level * pending_freshness(age);
+        }
+
         let base = match self.state.phase() {
             AgentState::Idle => 0.0,
             AgentState::Thinking => 0.18,
@@ -275,14 +310,19 @@ impl ActivityEngine {
             }
         };
 
-        base * freshness(now.saturating_sub(self.last_signal_at))
+        base * freshness(age)
     }
 
+    /// Pending model output is a structural inference: medium confidence
+    /// until it fades, regardless of how old the last record is.
     fn effective_confidence(&self, now: Duration) -> Confidence {
-        if now.saturating_sub(self.last_signal_at) > Duration::from_secs(3) {
-            Confidence::Low
-        } else {
-            self.confidence
+        let age = now.saturating_sub(self.last_signal_at);
+        let pending = self.state.awaiting_model() && age < PENDING_END;
+        match (age <= RECENT_SIGNAL, pending) {
+            (true, true) if self.confidence == Confidence::Low => Confidence::Medium,
+            (true, _) => self.confidence,
+            (false, true) => Confidence::Medium,
+            (false, false) => Confidence::Low,
         }
     }
 }
@@ -303,6 +343,17 @@ fn freshness(age: Duration) -> f32 {
         1.0 - 0.95 * ((ms - 1500.0) / 1500.0)
     } else if ms <= 5000.0 {
         0.05 * (1.0 - ((ms - 3000.0) / 2000.0))
+    } else {
+        0.0
+    }
+}
+
+fn pending_freshness(age: Duration) -> f32 {
+    if age <= PENDING_HOLD {
+        1.0
+    } else if age < PENDING_END {
+        let fade = (age - PENDING_HOLD).as_secs_f32() / (PENDING_END - PENDING_HOLD).as_secs_f32();
+        1.0 - fade
     } else {
         0.0
     }

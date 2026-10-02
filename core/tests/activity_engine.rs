@@ -53,7 +53,6 @@ fn reducer_bounds_parallel_tool_state() {
 #[test]
 fn thinking_impulse_decays() {
     let mut engine = ActivityEngine::new(ms(0));
-    engine.apply(&NormalizedEvent::TurnStart, ms(0));
     engine.apply(
         &NormalizedEvent::ThinkingPulse {
             units: 1,
@@ -203,6 +202,15 @@ fn realtime_usage_score_decays_after_updates_stop() {
     assert_eq!(engine.usage_cadence(), UsageCadence::Realtime);
     assert!(engine.sample(ms(2600)).intensity > 0.3);
 
+    // A long shell command runs; no further usage arrives.
+    engine.apply(
+        &NormalizedEvent::ToolStart {
+            id: ToolKey::new("build"),
+            class: ToolClass::Shell,
+        },
+        ms(2600),
+    );
+
     let mut intensity = 1.0;
     for now in (2700..10_000).step_by(100) {
         intensity = engine.sample(ms(now)).intensity;
@@ -229,4 +237,78 @@ fn stale_turn_expires_to_idle() {
     assert_eq!(engine.state().phase(), AgentState::Idle);
     assert_eq!(engine.state().active_tool_count(), 0);
     assert!(!engine.expire_stale_turn(ms(200_000), ms(60_000)));
+}
+
+#[test]
+fn pending_model_output_sustains_activity_until_the_next_record() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+
+    // No record arrives for 30 s while the model thinks.
+    let mut quiet = f32::MAX;
+    for now in (500..30_000).step_by(100) {
+        quiet = quiet.min(engine.sample(ms(now)).intensity);
+    }
+    assert!(quiet >= 0.2, "pending activity dropped to {quiet}");
+    assert_eq!(engine.sample(ms(30_000)).phase, AgentState::Thinking);
+}
+
+#[test]
+fn pending_activity_resumes_after_tools_return_and_stops_at_turn_end() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+    engine.apply(
+        &NormalizedEvent::ToolStart {
+            id: ToolKey::new("a"),
+            class: ToolClass::Shell,
+        },
+        ms(1_000),
+    );
+    assert!(!engine.state().awaiting_model());
+
+    engine.apply(
+        &NormalizedEvent::ToolEnd {
+            id: Some(ToolKey::new("a")),
+        },
+        ms(20_000),
+    );
+    assert!(engine.state().awaiting_model());
+    let mut intensity = 0.0;
+    for now in (20_000..30_000).step_by(100) {
+        intensity = engine.sample(ms(now)).intensity;
+    }
+    assert!(intensity >= 0.2);
+
+    engine.apply(&NormalizedEvent::TurnEnd, ms(30_000));
+    for now in (30_000..35_000).step_by(100) {
+        intensity = engine.sample(ms(now)).intensity;
+    }
+    assert!(intensity < 0.005);
+    assert_eq!(engine.state().phase(), AgentState::Idle);
+}
+
+#[test]
+fn pending_activity_fades_when_no_record_ever_arrives() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+
+    let mut intensity = 1.0;
+    for now in (0..125_000).step_by(100) {
+        intensity = engine.sample(ms(now)).intensity;
+    }
+    assert!(intensity < 0.005, "intensity stayed at {intensity}");
+}
+
+#[test]
+fn history_updates_state_without_sound() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply_history(&NormalizedEvent::TurnStart);
+    engine.apply_history(&NormalizedEvent::ThinkingPulse {
+        units: 1,
+        confidence: Confidence::High,
+    });
+
+    assert_eq!(engine.state().phase(), AgentState::Thinking);
+    assert!(!engine.state().awaiting_model());
+    assert_eq!(engine.sample(ms(100)).intensity, 0.0);
 }

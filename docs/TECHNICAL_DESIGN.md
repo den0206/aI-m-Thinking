@@ -185,8 +185,11 @@ Relevant record semantics:
 | assistant content `text` | `WritingPulse` |
 | assistant content `tool_use` | `ToolStart` |
 | user content `tool_result` | `ToolEnd` |
-| system `turn_duration` | `TurnEnd` |
+| assistant terminal `stop_reason` (`end_turn` etc.) | `TurnEnd` |
+| system `turn_duration` (older versions) | `TurnEnd` |
 | unknown record | ignore |
+
+Claude Code writes the content blocks of an API message when the message completes, so transcript rows lag the work they describe. See `docs/PARSER_RULES.md` for the measured gaps and the "awaiting model output" rule that covers them.
 
 Claude's transcript format is treated as an implementation detail rather than a stable public schema. Parsing must therefore be permissive:
 
@@ -306,6 +309,8 @@ struct SessionState {
 ```
 
 State and sound intensity are deliberately separate. A session may remain logically THINKING while its audio intensity decays to zero because no fresh signal has arrived.
+
+The reducer also tracks whether model output is pending: set by `TurnStart` and by a `ToolEnd` that leaves no active tools, cleared by `ToolStart` and `TurnEnd`. While output is pending, activity holds for 60 s after the last record and fades out by 120 s.
 
 ## 8. Activity Velocity
 

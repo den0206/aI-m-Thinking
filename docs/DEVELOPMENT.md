@@ -122,6 +122,16 @@ CONFIG=debug ./scripts/build-app.sh
 ./scripts/build-app.sh
 ```
 
+### Accuracy replay
+
+実際の Claude Code トランスクリプトを時刻どおりに再生し、生成中・ツール実行中・待機中の各区間で「音が鳴った割合」と「phase の一致率」を集計します。出力は集計値のみで、トランスクリプトの内容は表示しません。
+
+```bash
+cargo run --manifest-path core/Cargo.toml --example replay_eval -- ~/.claude/projects/<project>/<session>.jsonl
+```
+
+パーサーや Activity Engine を変更したときは、手元の複数セッションで前後の数値を比較してください。
+
 ## 7. Real agent smoke test
 
 I’m Thinking Debugを起動した状態で、別Terminalから通常どおり `claude` または `codex` を起動します。

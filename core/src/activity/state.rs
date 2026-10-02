@@ -7,6 +7,7 @@ const MAX_ACTIVE_TOOLS: usize = 64;
 #[derive(Debug)]
 pub struct SessionState {
     turn_open: bool,
+    awaiting_model: bool,
     phase: AgentState,
     active_tools: HashMap<ToolKey, ToolClass>,
 }
@@ -15,6 +16,7 @@ impl Default for SessionState {
     fn default() -> Self {
         Self {
             turn_open: false,
+            awaiting_model: false,
             phase: AgentState::Idle,
             active_tools: HashMap::new(),
         }
@@ -28,6 +30,13 @@ impl SessionState {
 
     pub fn turn_open(&self) -> bool {
         self.turn_open
+    }
+
+    /// True while the model is producing output that has not reached the
+    /// transcript yet: after a prompt, and after every tool has returned.
+    /// Transcripts record content blocks only once they are complete.
+    pub fn awaiting_model(&self) -> bool {
+        self.awaiting_model
     }
 
     pub fn active_tool_count(&self) -> usize {
@@ -44,6 +53,7 @@ impl SessionState {
         match event {
             NormalizedEvent::TurnStart => {
                 self.turn_open = true;
+                self.awaiting_model = true;
                 self.active_tools.clear();
                 self.phase = AgentState::Thinking;
             }
@@ -62,6 +72,7 @@ impl SessionState {
                 {
                     self.active_tools.insert(id.clone(), *class);
                 }
+                self.awaiting_model = false;
                 self.phase = AgentState::Tool;
             }
             NormalizedEvent::ToolEnd { id } => {
@@ -76,7 +87,8 @@ impl SessionState {
                     }
                 }
 
-                self.phase = if self.active_tools.is_empty() {
+                self.awaiting_model = self.active_tools.is_empty();
+                self.phase = if self.awaiting_model {
                     AgentState::Thinking
                 } else {
                     AgentState::Tool
@@ -84,10 +96,18 @@ impl SessionState {
             }
             NormalizedEvent::TurnEnd => {
                 self.turn_open = false;
+                self.awaiting_model = false;
                 self.active_tools.clear();
                 self.phase = AgentState::Idle;
             }
             NormalizedEvent::UsagePulse { .. } => {}
         }
+    }
+
+    /// Applies an event replayed from history: state is reconstructed, but
+    /// the model is not assumed to be working now.
+    pub fn apply_history(&mut self, event: &NormalizedEvent) {
+        self.apply(event);
+        self.awaiting_model = false;
     }
 }
