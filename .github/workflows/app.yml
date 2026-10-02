@@ -47,6 +47,8 @@ jobs:
           APP=".build/appstore-smoke/I'm Thinking App Store Smoke.app"
           CORE="$APP/Contents/MacOS/im-thinking-core"
           test "$(/usr/libexec/PlistBuddy -c 'Print :ImThinkingDistribution' "$APP/Contents/Info.plist")" = "app-store"
+          test -f "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+          plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
           codesign -d --entitlements :- "$APP" > "$RUNNER_TEMP/app-entitlements.plist" 2>/dev/null
           codesign -d --entitlements :- "$CORE" > "$RUNNER_TEMP/core-entitlements.plist" 2>/dev/null
           test "$(plutil -extract com.apple.security.app-sandbox raw -o - "$RUNNER_TEMP/app-entitlements.plist")" = "true"
