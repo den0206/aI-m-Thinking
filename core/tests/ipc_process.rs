@@ -29,19 +29,15 @@ fn core_handshake_ping_and_shutdown() {
     let hello = read_json(&mut stdout);
     assert_eq!(hello["type"], "hello");
 
-    writeln!(
-        stdin,
-        "{}",
-        r#"{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}"#
-    )
-    .unwrap();
-    stdin.flush().unwrap();
+    write_command(
+        &mut stdin,
+        r#"{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}"#,
+    );
 
     let ready = read_json(&mut stdout);
     assert_eq!(ready["type"], "ready");
 
-    writeln!(stdin, "{}", r#"{"v":1,"type":"ping","id":42}"#).unwrap();
-    stdin.flush().unwrap();
+    write_command(&mut stdin, r#"{"v":1,"type":"ping","id":42}"#);
 
     let mut saw_pong = false;
     for _ in 0..8 {
@@ -54,13 +50,18 @@ fn core_handshake_ping_and_shutdown() {
     }
     assert!(saw_pong);
 
-    writeln!(stdin, "{}", r#"{"v":1,"type":"shutdown"}"#).unwrap();
-    stdin.flush().unwrap();
+    write_command(&mut stdin, r#"{"v":1,"type":"shutdown"}"#);
     drop(stdin);
 
     let status = child.wait().unwrap();
     assert!(status.success());
     let _ = fs::remove_dir_all(home);
+}
+
+fn write_command(writer: &mut impl Write, command: &str) {
+    writer.write_all(command.as_bytes()).unwrap();
+    writer.write_all(b"\n").unwrap();
+    writer.flush().unwrap();
 }
 
 fn read_json(reader: &mut impl BufRead) -> serde_json::Value {
