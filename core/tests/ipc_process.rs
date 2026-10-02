@@ -1,0 +1,70 @@
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Command, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[test]
+fn core_handshake_ping_and_shutdown() {
+    let home = std::env::temp_dir().join(format!(
+        "im-thinking-ipc-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&home).unwrap();
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_im-thinking-core"))
+        .env("HOME", &home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+
+    let hello = read_json(&mut stdout);
+    assert_eq!(hello["type"], "hello");
+
+    writeln!(
+        stdin,
+        r#"{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}"#
+    )
+    .unwrap();
+    stdin.flush().unwrap();
+
+    let ready = read_json(&mut stdout);
+    assert_eq!(ready["type"], "ready");
+
+    writeln!(stdin, r#"{"v":1,"type":"ping","id":42}"#).unwrap();
+    stdin.flush().unwrap();
+
+    let mut saw_pong = false;
+    for _ in 0..8 {
+        let message = read_json(&mut stdout);
+        if message["type"] == "pong" {
+            assert_eq!(message["id"], 42);
+            saw_pong = true;
+            break;
+        }
+    }
+    assert!(saw_pong);
+
+    writeln!(stdin, r#"{"v":1,"type":"shutdown"}"#).unwrap();
+    stdin.flush().unwrap();
+    drop(stdin);
+
+    let status = child.wait().unwrap();
+    assert!(status.success());
+    let _ = fs::remove_dir_all(home);
+}
+
+fn read_json(reader: &mut impl BufRead) -> serde_json::Value {
+    let mut line = String::new();
+    reader.read_line(&mut line).unwrap();
+    assert!(!line.is_empty());
+    serde_json::from_str(&line).unwrap()
+}

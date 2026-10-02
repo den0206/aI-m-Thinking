@@ -50,6 +50,14 @@ struct MenuContent: View {
                 )
             )
 
+            Toggle(
+                "Start at Login",
+                isOn: Binding(
+                    get: { model.startAtLogin },
+                    set: { model.setStartAtLogin($0) }
+                )
+            )
+
             Button("Preview Sound") {
                 model.previewSound()
             }
@@ -58,6 +66,10 @@ struct MenuContent: View {
             Divider()
 
             HStack {
+                Button("Rescan Agents") {
+                    model.rescanAgents()
+                }
+
                 Button("Restart Monitor") {
                     model.restartCore()
                 }
@@ -71,7 +83,7 @@ struct MenuContent: View {
             }
         }
         .padding(14)
-        .frame(width: 300)
+        .frame(width: 320)
     }
 
     private var coreIcon: String {

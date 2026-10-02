@@ -88,6 +88,10 @@ final class CoreBridge {
         }
     }
 
+    func rescan() {
+        send(["v": 1, "type": "rescan"])
+    }
+
     func stop(force: Bool = false) {
         intentionalStop = true
         send(["v": 1, "type": "shutdown"])
@@ -178,6 +182,17 @@ final class CoreBridge {
             return URL(fileURLWithPath: override)
         }
 
-        return Bundle.main.url(forAuxiliaryExecutable: "im-thinking-core")
+        if let bundled = Bundle.main.url(forAuxiliaryExecutable: "im-thinking-core"),
+           FileManager.default.isExecutableFile(atPath: bundled.path) {
+            return bundled
+        }
+
+        let macOSExecutable = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/MacOS/im-thinking-core")
+        if FileManager.default.isExecutableFile(atPath: macOSExecutable.path) {
+            return macOSExecutable
+        }
+
+        return nil
     }
 }

@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "core/**"
+      - "scripts/build-app.sh"
       - ".github/workflows/app.yml"
   pull_request:
     paths:
       - "app/**"
+      - "core/**"
+      - "scripts/build-app.sh"
       - ".github/workflows/app.yml"
 
 permissions:
@@ -25,3 +29,11 @@ jobs:
         run: swift build --package-path app
       - name: Test
         run: swift test --package-path app
+
+      - name: Build App Bundle
+        run: bash scripts/build-app.sh
+      - name: Verify Bundle
+        run: |
+          test -x "dist/I'm Thinking.app/Contents/MacOS/ImThinking"
+          test -x "dist/I'm Thinking.app/Contents/MacOS/im-thinking-core"
+          plutil -lint "dist/I'm Thinking.app/Contents/Info.plist"

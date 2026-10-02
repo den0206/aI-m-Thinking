@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 @MainActor
@@ -8,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var soundPack: SoundPackID
     @Published private(set) var volume: Double
     @Published private(set) var muted: Bool
+    @Published private(set) var startAtLogin: Bool
 
     private let bridge = CoreBridge()
     private let audio: KeyboardAudioEngine
@@ -25,6 +27,7 @@ final class AppModel: ObservableObject {
         soundPack = initialPack
         volume = initialVolume
         muted = initialMuted
+        startAtLogin = LoginItemManager.isEnabled
 
         let audio = KeyboardAudioEngine(pack: initialPack)
         audio.volume = initialVolume
@@ -39,12 +42,24 @@ final class AppModel: ObservableObject {
             self?.handle(message)
         }
         bridge.start()
+
+        _ = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak bridge] _ in
+            bridge?.rescan()
+        }
     }
 
     func restartCore() {
         activities.removeAll(keepingCapacity: false)
         scheduler.stop()
         bridge.restart()
+    }
+
+    func rescanAgents() {
+        bridge.rescan()
     }
 
     func stopCore() {
@@ -74,6 +89,15 @@ final class AppModel: ObservableObject {
         if newValue {
             scheduler.stop()
         }
+    }
+
+    func setStartAtLogin(_ enabled: Bool) {
+        do {
+            try LoginItemManager.setEnabled(enabled)
+        } catch {
+            // The OS remains the source of truth.
+        }
+        startAtLogin = LoginItemManager.isEnabled
     }
 
     func previewSound() {

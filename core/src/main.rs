@@ -69,8 +69,10 @@ fn run() -> io::Result<()> {
                 if let Some(existing) = monitor.take() {
                     existing.shutdown();
                 }
-                monitor = Some(spawn_monitor(Arc::clone(&writer), agents));
+
+                // Complete the handshake before observer/session events can be emitted.
                 with_writer(&writer, |writer| writer.ready())?;
+                monitor = Some(spawn_monitor(Arc::clone(&writer), agents));
             }
             ClientCommand::SetAgentEnabled { agent, enabled, .. } => {
                 if let Some(monitor) = &monitor {

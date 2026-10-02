@@ -35,6 +35,22 @@ fn reducer_handles_parallel_tools() {
 }
 
 #[test]
+fn reducer_bounds_parallel_tool_state() {
+    let mut state = SessionState::default();
+    state.apply(&NormalizedEvent::TurnStart);
+
+    for index in 0..100 {
+        state.apply(&NormalizedEvent::ToolStart {
+            id: ToolKey::new(format!("tool-{index}")),
+            class: ToolClass::Read,
+        });
+    }
+
+    assert_eq!(state.phase(), AgentState::Tool);
+    assert_eq!(state.active_tool_count(), 64);
+}
+
+#[test]
 fn thinking_impulse_decays() {
     let mut engine = ActivityEngine::new(ms(0));
     engine.apply(&NormalizedEvent::TurnStart, ms(0));

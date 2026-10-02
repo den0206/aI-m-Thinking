@@ -14,7 +14,7 @@ use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
 use crate::parsers::{ClaudeParser, CodexParser};
 
 const MAX_ACTIVE_SESSIONS: usize = 64;
-const MAX_BASELINES: usize = 256;
+const MAX_BASELINES_PER_AGENT: usize = 128;
 const MAX_DISCOVERY_ENTRIES: usize = 4096;
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -166,9 +166,20 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             while let Ok(command) = commands.try_recv() {
                 match command {
                     MonitorCommand::SetEnabled { agent, enabled } => {
-                        if let Some(root) = self.roots.iter_mut().find(|root| root.kind == agent) {
-                            root.enabled = enabled;
-                            self.status(agent, if enabled { "monitoring" } else { "disabled" });
+                        let changed =
+                            if let Some(root) = self.roots.iter_mut().find(|root| root.kind == agent) {
+                                root.enabled = enabled;
+                                true
+                            } else {
+                                false
+                            };
+
+                        if changed {
+                            if enabled {
+                                self.rescan_roots();
+                            } else {
+                                self.status(agent, "disabled");
+                            }
                         }
                     }
                     MonitorCommand::Rescan => self.rescan_roots(),
@@ -227,18 +238,25 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     }
 
     fn baseline_root(&mut self, agent: AgentKind, root: &Path) {
+        let existing = self
+            .baselines
+            .values()
+            .filter(|baseline| baseline.agent == agent)
+            .count();
+        let remaining = MAX_BASELINES_PER_AGENT.saturating_sub(existing);
+        if remaining == 0 {
+            return;
+        }
+
         let mut candidates = discover_jsonl(root);
         candidates.sort_by_key(|(_, modified)| std::cmp::Reverse(*modified));
 
-        for (path, _) in candidates.into_iter().take(MAX_BASELINES) {
+        for (path, _) in candidates.into_iter().take(remaining) {
             if self.sessions.contains_key(&path) || self.baselines.contains_key(&path) {
                 continue;
             }
 
             if let Ok((_file, cursor)) = FileCursor::baseline(&path) {
-                if self.baselines.len() >= MAX_BASELINES {
-                    break;
-                }
                 self.baselines.insert(path, Baseline { agent, cursor });
             }
         }
@@ -317,7 +335,12 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         // Unknown pre-existing file: baseline at current EOF rather than replaying
         // historical content. A future append will be observed normally.
         if let Ok((_file, cursor)) = FileCursor::baseline(&path) {
-            if self.baselines.len() < MAX_BASELINES {
+            let agent_count = self
+                .baselines
+                .values()
+                .filter(|baseline| baseline.agent == agent)
+                .count();
+            if agent_count < MAX_BASELINES_PER_AGENT {
                 self.baselines.insert(path, Baseline { agent, cursor });
             }
         }
