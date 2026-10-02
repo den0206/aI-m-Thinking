@@ -166,13 +166,14 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             while let Ok(command) = commands.try_recv() {
                 match command {
                     MonitorCommand::SetEnabled { agent, enabled } => {
-                        let changed =
-                            if let Some(root) = self.roots.iter_mut().find(|root| root.kind == agent) {
-                                root.enabled = enabled;
-                                true
-                            } else {
-                                false
-                            };
+                        let changed = if let Some(root) =
+                            self.roots.iter_mut().find(|root| root.kind == agent)
+                        {
+                            root.enabled = enabled;
+                            true
+                        } else {
+                            false
+                        };
 
                         if changed {
                             if enabled {
