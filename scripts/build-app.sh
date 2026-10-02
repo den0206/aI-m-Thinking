@@ -78,13 +78,19 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 PLIST
 
 CODESIGN_ARGS=(--force --options runtime --sign "$SIGN_IDENTITY")
-if [[ "$SIGN_IDENTITY" != "-" ]]; then
+if [[ "$SIGN_IDENTITY" != "-" && "$CONFIG" == "release" ]]; then
   CODESIGN_ARGS+=(--timestamp)
 fi
 
 # Sign the bundled Rust helper first, then seal the containing app bundle.
 codesign "${CODESIGN_ARGS[@]}" "$MACOS/im-thinking-core"
-codesign "${CODESIGN_ARGS[@]}" "$APP"
+
+APP_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
+if [[ "$CONFIG" == "debug" ]]; then
+  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/ImThinking.debug.entitlements")
+fi
+
+codesign "${APP_CODESIGN_ARGS[@]}" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
 echo "$APP"
