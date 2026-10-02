@@ -4,8 +4,13 @@ import SwiftUI
 struct ImThinkingApp: App {
     @StateObject private var model = AppModel()
 
+    private var displayName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? "I'm Thinking"
+    }
+
     var body: some Scene {
-        MenuBarExtra("I'm Thinking", systemImage: "brain") {
+        MenuBarExtra(displayName, systemImage: "brain") {
             MenuContent(model: model)
         }
         .menuBarExtraStyle(.window)
