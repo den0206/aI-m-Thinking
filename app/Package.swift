@@ -20,5 +20,6 @@ let package = Package(
             dependencies: ["ImThinking"],
             path: "Tests/ImThinkingTests"
         )
-    ]
+    ],
+    swiftLanguageVersions: [.version("6")]
 )
