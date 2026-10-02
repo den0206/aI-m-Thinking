@@ -1,0 +1,9 @@
+[package]
+name = "im-thinking-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+notify = "8.2.0"
