@@ -136,6 +136,7 @@ git push origin v0.1.0
 
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Release Guide](docs/RELEASE.md)
+- [Mac App Store Readiness](docs/APP_STORE.md)
 - [Manual Verification Checklist](docs/checklists/manual-verification.md)
 - [Technical Design](docs/TECHNICAL_DESIGN.md)
 - [Parser Rules](docs/PARSER_RULES.md)
