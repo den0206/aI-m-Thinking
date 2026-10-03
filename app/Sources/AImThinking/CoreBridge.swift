@@ -26,18 +26,25 @@ final class CoreBridge {
     var onStatus: ((CoreStatus) -> Void)?
 
     private let rootProvider: any AgentRootProviding
+    private let executableURL: URL?
     private var process: Process?
     private var input: FileHandle?
     private var outputBuffer = Data()
     private var intentionalStop = false
+    private var generation = 0
+    private var restartTask: Task<Void, Never>?
 
-    init(rootProvider: any AgentRootProviding = DirectAgentRootProvider()) {
+    init(rootProvider: any AgentRootProviding = DirectAgentRootProvider(), executableURL: URL? = nil) {
         self.rootProvider = rootProvider
+        self.executableURL = executableURL
     }
 
     func start() {
         guard process == nil else { return }
-        guard let executable = Self.coreExecutableURL() else {
+        generation &+= 1
+        let generation = generation
+        outputBuffer.removeAll()
+        guard let executable = executableURL ?? Self.coreExecutableURL() else {
             onStatus?(.unavailable)
             return
         }
@@ -63,13 +70,14 @@ final class CoreBridge {
             }
 
             Task { @MainActor [weak self] in
-                self?.consume(data)
+                guard let self, self.generation == generation else { return }
+                self.consume(data)
             }
         }
 
         process.terminationHandler = { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == generation else { return }
                 self.process = nil
                 self.input = nil
                 self.outputBuffer.removeAll(keepingCapacity: false)
@@ -93,8 +101,9 @@ final class CoreBridge {
     func restart() {
         stop(force: true)
 
-        Task { @MainActor [weak self] in
+        restartTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
             self?.start()
         }
     }
@@ -104,6 +113,9 @@ final class CoreBridge {
     }
 
     func stop(force: Bool = false) {
+        restartTask?.cancel()
+        restartTask = nil
+        generation &+= 1
         intentionalStop = true
         send(["v": 1, "type": "shutdown"])
 

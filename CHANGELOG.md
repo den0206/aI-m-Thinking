@@ -22,6 +22,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Fixed
 
+- Silent sessions no longer leave Thinking displayed in the agent tile.
 - Claude idle status cannot be undone by queued transcript records across scan budgets or by a partial row completed later.
 - Codex long model-output waits remain audible up to the bounded stale-turn deadline; paginated reasoning/messages and terminal answer phases are recognized.
 - Late records cannot reopen explicitly ended turns, and silent/idle sessions and monitor shutdown no longer leave the keycap animating.

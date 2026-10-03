@@ -235,7 +235,7 @@ final class AppModel: ObservableObject {
 
         for agent in ["claude", "codex"] {
             let phase = activities.values
-                .filter { $0.agent == agent && $0.phase != "idle" }
+                .filter { $0.agent == agent && $0.phase != "idle" && $0.intensity >= 0.06 }
                 .max(by: { $0.intensity < $1.intensity })?.phase ?? "idle"
             if agent == "claude" { claudeState = phase.capitalized }
             else { codexState = phase.capitalized }

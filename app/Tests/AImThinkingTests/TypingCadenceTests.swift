@@ -48,6 +48,12 @@ func activityAnimationStopsForIdleSilenceAndMonitorShutdown() async throws {
     model.handle(try activity(2, "thinking", 0.0)) // A stale/replayed session.
     model.handle(try activity(1, "idle", 0))
     #expect(!model.keyPress.isAnimating)
+    #expect(model.codexState == "Idle") // Silent history must not leave Thinking… visible.
+    model.handle(try activity(2, "thinking", 0.05))
+    #expect(model.codexState == "Idle")
+    model.handle(try activity(2, "thinking", 0.4))
+    #expect(model.codexState == "Thinking")
+    model.handle(try activity(2, "idle", 0))
     try await Task.sleep(for: .milliseconds(20))
     #expect(model.keyPress.frame == 0) // Cancelled tasks cannot redraw a pressed key.
 
@@ -62,6 +68,47 @@ func higherWritingIntensityProducesFasterCadence() {
     let low = TypingScheduler.keysPerSecond(intensity: 0.25, phase: "writing", toolClass: nil)
     let high = TypingScheduler.keysPerSecond(intensity: 0.85, phase: "writing", toolClass: nil)
     #expect(high > low)
+}
+
+@Test @MainActor
+func oldCoreExitCannotDisconnectRestartedMonitor() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let executable = directory.appending(path: "fake-core")
+    try """
+    #!/bin/sh
+    trap '' TERM
+    printf '%s\\n' '{"v":1,"type":"hello"}'
+    read -r command
+    printf '%s\\n' '{"v":1,"type":"ready"}'
+    while read -r command; do
+        case "$command" in
+            *shutdown*) sleep 0.6; exit 0 ;;
+            *rescan*) printf '%s\\n' '{"v":1,"type":"observer_status","agent":"codex","status":"monitoring"}' ;;
+        esac
+    done
+    """.write(to: executable, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+    let bridge = CoreBridge(executableURL: executable)
+    var status: CoreStatus = .unavailable
+    var rescanned = false
+    bridge.onStatus = { status = $0 }
+    bridge.onMessage = { if $0.type == "observer_status" { rescanned = true } }
+    bridge.start()
+    defer { bridge.stop(force: true) }
+    for _ in 0..<100 where status != .monitoring {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(status == .monitoring)
+    bridge.restart()
+    try await Task.sleep(for: .seconds(1))
+    #expect(status == .monitoring)
+    bridge.rescan()
+    for _ in 0..<100 where !rescanned {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(rescanned)
 }
 
 
