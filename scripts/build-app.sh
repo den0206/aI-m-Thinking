@@ -165,7 +165,9 @@ codesign --verify --strict --verbose=2 "$APP"
 
 if [[ "$CONFIG" == "appstore" ]]; then
   PKG="$OUT_DIR/aIm-Thinking-$MARKETING_VERSION-$BUILD_NUMBER.pkg"
-  productbuild --component "$APP" /Applications --sign "$INSTALLER_IDENTITY" "$PKG"
+  # SIGNING_KEYCHAIN limits the identity search to one keychain (CI); unset searches the user's list.
+  productbuild --component "$APP" /Applications --sign "$INSTALLER_IDENTITY" \
+    ${SIGNING_KEYCHAIN:+--keychain "$SIGNING_KEYCHAIN"} "$PKG"
   echo "$PKG"
   # CI uploads in its own step (release.yml) so the upload gets its own timeout.
   if [[ -n "${APPLE_ID:-}" ]]; then
