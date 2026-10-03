@@ -24,36 +24,7 @@ if [[ "$1" == --check ]]; then CHECK_ONLY=true; shift; fi
 VERSION="$1"
 BUILD_NUMBER="${2:-}"
 WHATS_NEW_FILE="${3:-}"
-APP_ID="${ASC_APP_ID:-6818721943}"
-API="https://api.appstoreconnect.apple.com/v1"
-
-# ES256 の JWT。有効期限は API 上限の 20 分。
-TOKEN="$(swift - "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$ASC_KEY_P8" <<'SWIFT'
-import CryptoKit
-import Foundation
-
-let args = CommandLine.arguments
-let key = try P256.Signing.PrivateKey(pemRepresentation: String(contentsOfFile: args[3], encoding: .utf8))
-func b64(_ data: Data) -> String {
-    data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
-        .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-}
-let now = Int(Date().timeIntervalSince1970)
-let header = b64(try JSONSerialization.data(withJSONObject: ["alg": "ES256", "kid": args[1], "typ": "JWT"]))
-let claims = b64(try JSONSerialization.data(withJSONObject: [
-    "iss": args[2], "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1",
-]))
-let signature = try key.signature(for: Data("\(header).\(claims)".utf8))
-print("\(header).\(claims).\(b64(signature.rawRepresentation))")
-SWIFT
-)"
-
-asc() {
-  local method="$1" path="$2" body="${3:-}"
-  local args=(--fail-with-body --silent --show-error -X "$method" -H "Authorization: Bearer $TOKEN")
-  [[ -n "$body" ]] && args+=(-H "Content-Type: application/json" -d "$body")
-  curl "${args[@]}" "$API$path"
-}
+source "$(dirname "$0")/asc-lib.sh"
 
 # 状態がこの中なら、そのバージョンへビルドを出し直せる。
 REPLACEABLE='PREPARE_FOR_SUBMISSION|DEVELOPER_REJECTED|REJECTED|METADATA_REJECTED|INVALID_BINARY|WAITING_FOR_REVIEW|IN_REVIEW'

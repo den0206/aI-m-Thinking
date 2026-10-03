@@ -32,6 +32,8 @@ git push origin release/Ver_0.1.0
 
 GitHub Release（tag `vX.Y.Z`）は**このリポジトリ**に作成されます。別repository用PATは不要です。
 
+App Storeへの提出を伴うので、通常はClaude Code / Codexの `appstore-submit` スキル（Claude Codeでは `/appstore-submit X.Y.Z`）から行います。`scripts/appstore-preflight.sh X.Y.Z` で提出要件を確かめ、掲載内容を実装と照合し、承認を得てからこのブランチをpushします。
+
 リリースノートは `CHANGELOG.md` の `[Unreleased]` です。push前に英語で書いておきます（`scripts/release-changelog.sh --check` が日本語の混入と未知の節見出しを止めます）。
 
 ## 3. Release pipeline
