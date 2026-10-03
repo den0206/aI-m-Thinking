@@ -4,9 +4,9 @@
 
 # aI'm Thinking
 
-[![Core](https://github.com/den0206/I-m-Thinking/actions/workflows/core.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/core.yml)
-[![App](https://github.com/den0206/I-m-Thinking/actions/workflows/app.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/app.yml)
-[![Release](https://github.com/den0206/I-m-Thinking/actions/workflows/release.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/release.yml)
+[![Core](https://github.com/den0206/aI-m-Thinking/actions/workflows/core.yml/badge.svg)](https://github.com/den0206/aI-m-Thinking/actions/workflows/core.yml)
+[![App](https://github.com/den0206/aI-m-Thinking/actions/workflows/app.yml/badge.svg)](https://github.com/den0206/aI-m-Thinking/actions/workflows/app.yml)
+[![Release](https://github.com/den0206/aI-m-Thinking/actions/workflows/release.yml/badge.svg)](https://github.com/den0206/aI-m-Thinking/actions/workflows/release.yml)
 
 [English](README.md) | **日本語**
 

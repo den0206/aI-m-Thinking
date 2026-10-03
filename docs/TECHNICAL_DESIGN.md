@@ -3,7 +3,7 @@
 > Status: Implementation-ready design  
 > Target: macOS menu bar application  
 > Primary agents: Claude Code / Codex  
-> Repository: `den0206/I-m-Thinking`
+> Repository: `den0206/aI-m-Thinking`
 
 ## 1. Product goal
 
@@ -1008,7 +1008,7 @@ DoD:
 The v1 implementation uses a deliberately small Swift + Rust split:
 
 ```text
-I-m-Thinking/
+aI-m-Thinking/
 ├── app/
 │   ├── Package.swift
 │   ├── Resources/
@@ -1096,7 +1096,7 @@ vX.Y.Z tag
   -> DMG creation
   -> DMG signing
   -> DMG notarize + staple
-  -> GitHub Release in den0206/I-m-Thinking
+  -> GitHub Release in den0206/aI-m-Thinking
 ```
 
 No dedicated release repository, self-update mechanism, or release-specific runtime service is part of v1.
