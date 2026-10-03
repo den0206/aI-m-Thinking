@@ -46,7 +46,7 @@ GitHub Releases から最新の `aIm-Thinking-X.Y.Z.dmg` を取得し、`aI'm Th
 - Claude Code / Codex の通常起動をpassive監視
 - THINKING / WRITING / TOOL / IDLE の状態推定
 - 活動強度に応じたキーボード音の速度変化
-- 5種類のキーボードサウンド
+- 6種類のキーボードサウンド
 - turnごとのランダムサウンド / typing速度調整
 - 活動に合わせたメニューバーのキーアニメーション
 - 音量 / Mute

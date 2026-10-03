@@ -6,6 +6,7 @@ enum SoundPackID: String, CaseIterable, Identifiable {
     case laptop
     case typewriter
     case soft
+    case hermes
 
     var id: String { rawValue }
 
@@ -16,10 +17,18 @@ enum SoundPackID: String, CaseIterable, Identifiable {
         case .laptop: "Laptop"
         case .typewriter: "Typewriter"
         case .soft: "Soft"
+        case .hermes: "Hermes Precisa 305"
         }
     }
 
-    // All packs share the recorded KC 1000 takes; Laptop is the unaltered recording.
+    var sampleDirectory: String {
+        switch self {
+        case .hermes: rawValue
+        default: "kc1000"
+        }
+    }
+
+    // The original five packs share KC 1000 takes; Laptop keeps their original tone.
     var profile: SoundProfile {
         switch self {
         case .mechanicalClicky: SoundProfile(rate: 1.15, lowpass: nil, gain: 0.60)
@@ -27,6 +36,7 @@ enum SoundPackID: String, CaseIterable, Identifiable {
         case .laptop: SoundProfile(rate: 1.0, lowpass: nil, gain: 0.55)
         case .typewriter: SoundProfile(rate: 0.90, lowpass: nil, gain: 0.72)
         case .soft: SoundProfile(rate: 0.92, lowpass: 1_600, gain: 0.45)
+        case .hermes: SoundProfile(rate: 1.0, lowpass: nil, gain: 0.60)
         }
     }
 }

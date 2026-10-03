@@ -4,8 +4,8 @@ import Testing
 @testable import AImThinking
 
 @Test
-func fiveBuiltInSoundPacksExist() {
-    #expect(SoundPackID.allCases.count == 5)
+func sixBuiltInSoundPacksExist() {
+    #expect(SoundPackID.allCases.count == 6)
 }
 
 @Test
@@ -169,6 +169,9 @@ func everySoundPackSynthesizesAudibleUnclippedBuffers() {
     for pack in SoundPackID.allCases {
         let bank = SoundSamples.makeBank(for: pack, directory: soundsDirectory)
         #expect(bank != nil)
+        #expect(bank?.keys.isEmpty == false)
+        #expect(bank?.spaces.isEmpty == false)
+        #expect(bank?.enters.isEmpty == false)
         for buffer in (bank?.keys ?? []) + (bank?.spaces ?? []) + (bank?.enters ?? []) {
             let samples = UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength))
             let peak = samples.map(abs).max() ?? 0
@@ -178,7 +181,30 @@ func everySoundPackSynthesizesAudibleUnclippedBuffers() {
     }
 }
 
+@Test
+func dedicatedKeycapSamplesKeepTheirPitchAndStayOutOfNormalKeys() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let packDirectory = directory.appending(path: "hermes")
+    try FileManager.default.createDirectory(at: packDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let source = soundsDirectory.appending(path: "hermes/key_press.wav")
+    for name in ["key_press.wav", "space_press.wav", "enter_press.wav"] {
+        try FileManager.default.copyItem(at: source, to: packDirectory.appending(path: name))
+    }
+    let bank = try #require(SoundSamples.makeBank(for: .hermes, directory: directory))
+    #expect(bank.keys.count == 1)
+    #expect(bank.spaces.count == 1)
+    #expect(bank.enters.count == 1)
+    #expect(bank.keys[0].frameLength == bank.spaces[0].frameLength)
+    #expect(bank.keys[0].frameLength == bank.enters[0].frameLength)
+
+    try FileManager.default.removeItem(at: packDirectory.appending(path: "enter_press.wav"))
+    let fallback = try #require(SoundSamples.makeBank(for: .hermes, directory: directory))
+    #expect(fallback.enters.count == 1)
+    #expect(fallback.enters[0].frameLength > fallback.keys[0].frameLength)
+}
+
 private let soundsDirectory = URL(filePath: #filePath)
     .deletingLastPathComponent()
-    .appending(path: "../../Resources/Sounds/kc1000")
+    .appending(path: "../../Resources/Sounds")
     .standardized

@@ -7,30 +7,33 @@ struct SoundBank {
     let enters: [AVAudioPCMBuffer]
 }
 
-/// Builds every pack from the bundled Cherry KC 1000 recordings
-/// (`Contents/Resources/Sounds/kc1000`); packs differ by playback rate and tone.
+/// Builds packs from bundled mono, 44.1 kHz WAVs in `Contents/Resources/Sounds`.
 enum SoundSamples {
     static let sampleRate = 44_100.0
 
     static var bundledDirectory: URL? {
-        Bundle.main.resourceURL?.appending(path: "Sounds/kc1000")
+        Bundle.main.resourceURL?.appending(path: "Sounds")
     }
 
     static func makeBank(for pack: SoundPackID, directory: URL? = bundledDirectory) -> SoundBank? {
         guard let directory,
-              let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+              let urls = try? FileManager.default.contentsOfDirectory(
+                at: directory.appending(path: pack.sampleDirectory), includingPropertiesForKeys: nil
+              )
         else {
             return nil
         }
-        let takes = urls
+        let wavs = urls
             .filter { $0.pathExtension == "wav" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let takes = wavs
+            .filter { $0.lastPathComponent.hasPrefix("key") }
             .compactMap(load)
         guard !takes.isEmpty else { return nil }
 
         let profile = pack.profile
-        func render(_ rateScale: Double, _ gainScale: Double) -> [AVAudioPCMBuffer] {
-            takes.enumerated().compactMap { index, samples in
+        func render(_ samples: [[Float]], _ rateScale: Double, _ gainScale: Double) -> [AVAudioPCMBuffer] {
+            samples.enumerated().compactMap { index, samples in
                 // Small level spread so repeated keys don't sound copy-pasted.
                 let level = 0.8 + 0.2 * Double(index % 5) / 4.0
                 return buffer(
@@ -42,8 +45,16 @@ enum SoundSamples {
             }
         }
 
-        // Space and Enter are bigger keycaps: lower and a little louder.
-        return SoundBank(keys: render(1.0, 1.0), spaces: render(0.82, 1.1), enters: render(0.88, 1.15))
+        func special(_ prefix: String, _ fallbackRate: Double, _ gain: Double) -> [AVAudioPCMBuffer] {
+            let samples = wavs.filter { $0.lastPathComponent.hasPrefix(prefix) }.compactMap(load)
+            // Use dedicated keycap sounds when available; otherwise lower the normal keys.
+            return render(samples.isEmpty ? takes : samples, samples.isEmpty ? fallbackRate : 1.0, gain)
+        }
+        return SoundBank(
+            keys: render(takes, 1.0, 1.0),
+            spaces: special("space", 0.82, 1.1),
+            enters: special("enter", 0.88, 1.15)
+        )
     }
 
     /// Reads a take and trims it to start right at the strike (~2 ms pre-roll)

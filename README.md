@@ -46,7 +46,7 @@ Builds are distributed from **this repository's own GitHub Releases**; there is 
 - Passive monitoring of Claude Code / Codex started the normal way
 - State estimation: THINKING / WRITING / TOOL / IDLE
 - Keyboard sound speed that follows activity intensity
-- Five keyboard sound sets
+- Six keyboard sound sets
 - Random sound per turn / adjustable typing speed
 - Menu bar key animation that follows activity
 - Volume / Mute
