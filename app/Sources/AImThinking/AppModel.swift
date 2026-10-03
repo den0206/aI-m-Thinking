@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var muted: Bool
     static let defaultVolume = 0.55
     @Published private(set) var startAtLogin: Bool
+    @Published private(set) var observerStatuses: [AgentService: String] = [:]
     @Published private(set) var claudeFolderAuthorized = false
     @Published private(set) var codexFolderAuthorized = false
     /// Why the last folder a user chose for an agent was rejected.
@@ -32,14 +33,15 @@ final class AppModel: ObservableObject {
     let keyPress = KeyPressAnimator()
 
     private let bridge: CoreBridge
-    private let sandboxProvider: SandboxAgentRootProvider?
+    private let rootProvider: any AgentRootProviding
     private let audio: KeyboardAudioEngine
     private let scheduler: TypingScheduler
     private let defaults: UserDefaults
     private var activities: [UInt32: ActivityState] = [:]
     private var wakeTask: Task<Void, Never>?
 
-    init(defaults: UserDefaults = .standard, startMonitoring: Bool = true) {
+    init(defaults: UserDefaults = .standard, startMonitoring: Bool = true,
+         distributionMode: DistributionMode = .current) {
         self.defaults = defaults
         let storedPack = defaults.string(forKey: "soundPack").flatMap(SoundPackID.init(rawValue:))
         let storedVolume = defaults.object(forKey: "volume") as? Double
@@ -48,22 +50,19 @@ final class AppModel: ObservableObject {
         let initialSpeed = (storedSpeed ?? 1.2).clamped(to: Self.typingSpeedRange)
         // A zero volume saved before mute followed the slider counts as muted.
         let initialMuted = defaults.bool(forKey: "muted") || initialVolume == 0
-        let mode = DistributionMode.current
+        let mode = distributionMode
 
         let rootProvider: any AgentRootProviding
-        let sandboxProvider: SandboxAgentRootProvider?
         switch mode {
         case .direct:
-            rootProvider = DirectAgentRootProvider()
-            sandboxProvider = nil
+            rootProvider = DirectAgentRootProvider(defaults: defaults)
         case .appStore:
             let provider = SandboxAgentRootProvider(defaults: defaults)
             rootProvider = provider
-            sandboxProvider = provider
         }
 
-        distributionMode = mode
-        self.sandboxProvider = sandboxProvider
+        self.distributionMode = mode
+        self.rootProvider = rootProvider
         bridge = CoreBridge(rootProvider: rootProvider)
 
         soundPack = storedPack
@@ -126,11 +125,26 @@ final class AppModel: ObservableObject {
         distributionMode == .appStore
     }
 
-    func authorizeFolder(for service: AgentService) {
-        guard let sandboxProvider else {
-            return
+    var monitorStatusLabel: String {
+        guard coreStatus == .monitoring else { return coreStatus.label }
+        if observerStatuses.values.contains("monitoring") { return "Monitoring" }
+        if observerStatuses.values.contains("error") { return "Limited monitoring" }
+        return observerStatuses.isEmpty ? "Checking folders" : "Check folders"
+    }
+
+    func observerProblem(for service: AgentService) -> String? {
+        switch observerStatuses[service] {
+        // An agent the user never set up has no folder; that is not a problem.
+        case "directory_missing" where hasSavedFolder(for: service): "Folder missing"
+        case "access_required" where hasSavedFolder(for: service): "Choose a folder"
+        case "access_denied": "Folder access failed"
+        case "error": "Using file polling"
+        default: nil
         }
-        switch sandboxProvider.chooseRoot(for: service) {
+    }
+
+    func authorizeFolder(for service: AgentService) {
+        switch rootProvider.chooseRoot(for: service) {
         case .cancelled:
             return
         case .rejected(let message):
@@ -149,6 +163,10 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func hasSavedFolder(for service: AgentService) -> Bool {
+        rootProvider.hasSavedRoot(service)
+    }
+
     /// The App Store build can do nothing until at least one folder is allowed.
     var canFinishOnboarding: Bool {
         !requiresFolderAuthorization || claudeFolderAuthorized || codexFolderAuthorized
@@ -163,7 +181,8 @@ final class AppModel: ObservableObject {
     }
 
     func revokeFolder(for service: AgentService) {
-        sandboxProvider?.revoke(service)
+        rootProvider.revoke(service)
+        folderErrors[service] = nil
         refreshAuthorizationState()
         restartCore()
     }
@@ -197,6 +216,7 @@ final class AppModel: ObservableObject {
         claudeState = "Waiting"
         codexState = "Waiting"
         unrecognizedAgents.removeAll()
+        observerStatuses.removeAll()
     }
 
     func selectSoundPack(_ pack: SoundPackID?) {
@@ -257,11 +277,44 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshAuthorizationState() {
-        claudeFolderAuthorized = sandboxProvider?.isAuthorized(.claude) ?? true
-        codexFolderAuthorized = sandboxProvider?.isAuthorized(.codex) ?? true
+        claudeFolderAuthorized = rootProvider.isAuthorized(.claude)
+        codexFolderAuthorized = rootProvider.isAuthorized(.codex)
+        if requiresFolderAuthorization {
+            for service in AgentService.allCases {
+                if !isFolderAuthorized(service), rootProvider.hasSavedRoot(service) {
+                    folderErrors[service] = "Folder access is no longer available. Choose the folder again."
+                } else {
+                    folderErrors[service] = nil
+                }
+            }
+        }
     }
 
     func handle(_ message: CoreMessage) {
+        if message.type == "observer_status",
+           let service = message.agent.flatMap(AgentService.init(rawValue:)),
+           let status = message.status {
+            observerStatuses[service] = status
+            if status == "monitoring" {
+                folderErrors[service] = nil
+            } else if requiresFolderAuthorization,
+                      ["access_required", "access_denied"].contains(status),
+                      rootProvider.hasSavedRoot(service) {
+                folderErrors[service] = "Folder access is no longer available. Choose the folder again."
+            }
+            if ["monitoring", "access_required", "access_denied", "directory_missing"].contains(status) {
+                if service == .claude { claudeFolderAuthorized = status == "monitoring" }
+                else { codexFolderAuthorized = status == "monitoring" }
+            }
+            if ["access_required", "access_denied", "directory_missing"].contains(status) {
+                for (session, previous) in activities.filter({ $0.value.agent == service.rawValue }) {
+                    activities[session] = ActivityState(agent: previous.agent, phase: "idle", intensity: 0,
+                        toolClass: nil, pack: previous.pack)
+                }
+            }
+            updateGlobalAudio()
+            return
+        }
         if message.type == "error", message.code == "PARSE3006",
            let agent = message.component.flatMap(AgentService.init(rawValue:)) {
             unrecognizedAgents.insert(agent)

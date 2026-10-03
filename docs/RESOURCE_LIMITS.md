@@ -17,6 +17,8 @@ const ACTIVITY_INTERVAL_MS: u64 = 100;
 const MAX_IPC_RECORD_BYTES: usize = 32 * 1024;
 
 const MAX_BASELINES_PER_AGENT: usize = 4096;
+const MAX_DISCOVERY_ENTRIES: usize = 4096;
+const MAX_DISCOVERY_DEPTH: usize = 64;
 const STALE_TURN_TIMEOUT_SECS: u64 = 600;
 ```
 
@@ -24,6 +26,7 @@ const STALE_TURN_TIMEOUT_SECS: u64 = 600;
 - Startup baselines are recorded from directory metadata, newest files first. When the per-agent budget is full, the least recently baselined file is forgotten so a newly active file can always be tracked. An idle session evicted at `MAX_ACTIVE_SESSIONS` becomes a baseline at its read position, so it is resumed rather than replayed or reopened.
 - Activity is emitted at most every `ACTIVITY_INTERVAL_MS` per session, except phase changes. A session that falls silent emits one zero-intensity update and then stops. Every 3 seconds, a bounded metadata scan reconciles files to recover missed native notifications, including appends to startup baselines. Transcript content is read only when new bytes need processing.
 - A turn with no signal for `STALE_TURN_TIMEOUT_SECS` is closed to IDLE so interrupted sessions do not stay active or block eviction.
+- Each root's archive traversal retains its directory iterators between reconciliation passes. A pass performs at most 4,096 traversal steps and keeps at most 64 directory iterators per root; deeper trees are excluded from polling. Tracked sessions are checked independently on every pass. Untracked files that predate monitoring become baselines only while the per-agent baseline budget has room, so archives larger than the budget are not reopened on every pass. A completed traversal starts again on the next pass, and an unavailable root releases all its iterators.
 
 ## Audio limits
 

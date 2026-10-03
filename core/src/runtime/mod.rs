@@ -20,6 +20,7 @@ const MAX_ACTIVE_SESSIONS: usize = 64;
 const MAX_BASELINES_PER_AGENT: usize = 4096;
 const MAX_CONFIGURED_ROOTS_PER_AGENT: usize = 4;
 const MAX_DISCOVERY_ENTRIES: usize = 4096;
+const MAX_DISCOVERY_DEPTH: usize = 64;
 const MAX_ACTIVITY_QUEUE: usize = 256;
 const ACTIVITY_INTERVAL: Duration = Duration::from_millis(100);
 // Native notifications can be unavailable even after a successful watch.
@@ -124,6 +125,8 @@ struct AgentRoot {
     path: PathBuf,
     watcher: Option<FileObserver>,
     status_watcher: Option<FileObserver>,
+    discovery: JsonlDiscovery,
+    status: Option<&'static str>,
     _scope: Option<ScopedRoot>,
 }
 
@@ -247,16 +250,26 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     ) -> Self {
         let mut configured_roots = Vec::new();
 
-        configured_roots.extend(resolve_root_grants(
-            AgentKind::Claude,
-            roots.claude,
-            flags.claude,
-        ));
-        configured_roots.extend(resolve_root_grants(
-            AgentKind::Codex,
-            roots.codex,
-            flags.codex,
-        ));
+        for (agent, grants, enabled) in [
+            (AgentKind::Claude, roots.claude, flags.claude),
+            (AgentKind::Codex, roots.codex, flags.codex),
+        ] {
+            let empty = grants.is_empty();
+            let resolved = resolve_root_grants(agent, grants, enabled);
+            if enabled && resolved.is_empty() {
+                if let Ok(mut writer) = writer.lock() {
+                    let _ = writer.observer_status(
+                        agent,
+                        if empty {
+                            "access_required"
+                        } else {
+                            "access_denied"
+                        },
+                    );
+                }
+            }
+            configured_roots.extend(resolved);
+        }
 
         Self {
             writer,
@@ -375,10 +388,24 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     /// Reconcile metadata so missing native notifications cannot strand a
     /// baseline or an active session. Existing EOF baselines remain intact.
     fn reconcile_files(&mut self) {
+        // Active sessions must not wait for an archive traversal to finish.
+        let tracked: Vec<_> = self
+            .sessions
+            .iter()
+            .filter_map(|(path, session)| {
+                fs::metadata(path)
+                    .ok()
+                    .filter(|metadata| session.cursor.metadata_changed(metadata))
+                    .map(|_| (path.clone(), session.agent))
+            })
+            .collect();
+        for (path, agent) in tracked {
+            self.mark_modified(path, agent);
+        }
         for index in 0..self.roots.len() {
             let agent = self.roots[index].kind;
             let root = self.roots[index].path.clone();
-            for (path, metadata) in discover_jsonl(&root) {
+            for (path, metadata) in self.roots[index].discovery.next_batch(&root) {
                 if let Some(session) = self.sessions.get(&path) {
                     if session.cursor.metadata_changed(&metadata) {
                         self.mark_modified(path, agent);
@@ -387,6 +414,17 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                     if baseline.cursor.metadata_changed(&metadata) {
                         eprintln!("IM_DIAGNOSTIC agent={} notification_missed", agent.as_str());
                         self.mark_modified(path, agent);
+                    }
+                } else if self.existed_before_monitoring(&metadata) {
+                    // Archive files past the baseline budget stay untracked:
+                    // tracking one would evict a newer baseline, only for that
+                    // file to be rediscovered and reopened on the next pass.
+                    if self.baseline_counts[agent_index(agent)] < self.baseline_cap {
+                        self.insert_baseline(
+                            path,
+                            agent,
+                            FileCursor::baseline_from_metadata(&metadata),
+                        );
                     }
                 } else {
                     self.open_new_session(path, agent);
@@ -403,13 +441,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         for path in removed {
             self.close_path(&path);
         }
-        if self
-            .roots
-            .iter()
-            .any(|root| root.watcher.is_none() && root.path.is_dir())
-        {
-            self.rescan_roots();
-        }
+        self.rescan_roots();
     }
 
     fn rescan_roots(&mut self) {
@@ -417,12 +449,22 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             let kind = self.roots[index].kind;
             let path = self.roots[index].path.clone();
 
-            if !path.is_dir() {
+            if let Err(error) = fs::read_dir(&path) {
                 self.roots[index].watcher = None;
                 self.roots[index].status_watcher = None;
-                self.status(kind, "directory_missing");
+                self.roots[index].discovery = JsonlDiscovery::default();
+                self.set_root_status(
+                    index,
+                    if error.kind() == io::ErrorKind::NotFound {
+                        "directory_missing"
+                    } else {
+                        "access_denied"
+                    },
+                );
                 continue;
             }
+
+            let needs_baseline = self.roots[index].status.is_none();
 
             if self.roots[index].watcher.is_none() {
                 let inbound = self.inbound.clone();
@@ -436,7 +478,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                 match FileObserver::watch(&path, sink) {
                     Ok(watcher) => self.roots[index].watcher = Some(watcher),
                     Err(_) => {
-                        self.status(kind, "error");
+                        self.set_root_status(index, "error");
                         continue;
                     }
                 }
@@ -456,8 +498,10 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                 self.roots[index].status_watcher = FileObserver::watch(&dir, sink).ok();
             }
 
-            self.baseline_root(kind, &path);
-            self.status(kind, "monitoring");
+            if needs_baseline {
+                self.baseline_root(kind, &path);
+            }
+            self.set_root_status(index, "monitoring");
         }
     }
 
@@ -980,7 +1024,12 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         now
     }
 
-    fn status(&self, agent: AgentKind, status: &'static str) {
+    fn set_root_status(&mut self, index: usize, status: &'static str) {
+        if self.roots[index].status == Some(status) {
+            return;
+        }
+        self.roots[index].status = Some(status);
+        let agent = self.roots[index].kind;
         self.with_writer(|writer| writer.observer_status(agent, status));
     }
 
@@ -1016,44 +1065,54 @@ fn agent_index(agent: AgentKind) -> usize {
     }
 }
 
-fn discover_jsonl(root: &Path) -> Vec<(PathBuf, Metadata)> {
-    // ponytail: capped traversal; rotate scan batches if large archives need notification-free monitoring.
-    let mut found = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    let mut visited = 0usize;
+#[derive(Default)]
+struct JsonlDiscovery {
+    // Keep directory iterators so each bounded pass continues where it stopped.
+    // Depth is capped to bound open descriptors and avoid pathological trees.
+    stack: Vec<fs::ReadDir>,
+}
 
-    while let Some(directory) = stack.pop() {
-        if visited >= MAX_DISCOVERY_ENTRIES {
-            break;
+impl JsonlDiscovery {
+    fn next_batch(&mut self, root: &Path) -> Vec<(PathBuf, Metadata)> {
+        let mut found = Vec::new();
+        if self.stack.is_empty() {
+            let Ok(entries) = fs::read_dir(root) else {
+                return found;
+            };
+            self.stack.push(entries);
         }
-        visited += 1;
-
-        let Ok(entries) = fs::read_dir(directory) else {
-            continue;
-        };
-
-        for entry in entries.flatten() {
-            if visited >= MAX_DISCOVERY_ENTRIES {
+        for _ in 0..MAX_DISCOVERY_ENTRIES {
+            let Some(entries) = self.stack.last_mut() else {
                 break;
-            }
-            visited += 1;
-
-            let path = entry.path();
+            };
+            let entry = match entries.next() {
+                Some(Ok(entry)) => entry,
+                Some(Err(_)) => continue,
+                None => {
+                    self.stack.pop();
+                    continue;
+                }
+            };
             let Ok(metadata) = entry.metadata() else {
                 continue;
             };
-
-            if metadata.is_dir() {
-                stack.push(path);
+            let path = entry.path();
+            if metadata.is_dir() && self.stack.len() < MAX_DISCOVERY_DEPTH {
+                if let Ok(entries) = fs::read_dir(&path) {
+                    self.stack.push(entries);
+                }
             } else if metadata.is_file()
                 && path.extension().and_then(|value| value.to_str()) == Some("jsonl")
             {
                 found.push((path, metadata));
             }
         }
+        found
     }
+}
 
-    found
+fn discover_jsonl(root: &Path) -> Vec<(PathBuf, Metadata)> {
+    JsonlDiscovery::default().next_batch(root)
 }
 
 /// `~/.claude/sessions` next to a Claude `~/.claude/projects` root.
@@ -1078,6 +1137,8 @@ fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) 
                     path: scope.path().to_path_buf(),
                     watcher: None,
                     status_watcher: None,
+                    discovery: JsonlDiscovery::default(),
+                    status: None,
                     _scope: Some(scope),
                 });
             }
@@ -1092,6 +1153,8 @@ fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) 
                 path: PathBuf::from(path),
                 watcher: None,
                 status_watcher: None,
+                discovery: JsonlDiscovery::default(),
+                status: None,
                 _scope: None,
             })
         })
@@ -1301,6 +1364,33 @@ mod tests {
     }
 
     #[test]
+    fn archive_past_baseline_budget_is_not_reopened_on_every_pass() {
+        let mut fixture = Fixture::new();
+        fixture.runtime.baseline_cap = 10;
+        for index in 0..50 {
+            fs::write(fixture.path(&format!("{index}.jsonl")), b"").unwrap();
+        }
+        // Files predate monitoring, as after launch or a restored folder.
+        fixture.runtime.started_wall = SystemTime::now() + Duration::from_secs(5);
+        fixture.runtime.rescan_roots();
+        fixture.output.take_messages();
+
+        for _ in 0..3 {
+            fixture.runtime.reconcile_files();
+        }
+
+        assert!(
+            fixture
+                .output
+                .take_messages()
+                .iter()
+                .all(|message| message["type"] != "session_opened")
+        );
+        assert!(fixture.runtime.sessions.is_empty());
+        assert_eq!(fixture.runtime.baselines.len(), 10);
+    }
+
+    #[test]
     fn evicted_session_is_not_reopened_by_reconciliation() {
         let mut fixture = Fixture::new();
         for i in 0..=MAX_ACTIVE_SESSIONS {
@@ -1433,6 +1523,106 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn discovery_rotates_batches_and_active_sessions_do_not_wait_for_archives() {
+        let mut fixture = Fixture::new();
+        // More entries than one reconciliation can visit, including nested folders.
+        let archive = fixture.path("archive");
+        fs::create_dir(&archive).unwrap();
+        for index in 0..MAX_DISCOVERY_ENTRIES + 10 {
+            fs::write(archive.join(format!("{index}.jsonl")), b"").unwrap();
+        }
+        let mut discovery = JsonlDiscovery::default();
+        let first = discovery.next_batch(&fixture.root);
+        assert!(first.len() <= MAX_DISCOVERY_ENTRIES);
+        assert!(!discovery.stack.is_empty());
+        let mut found: std::collections::HashSet<_> =
+            first.into_iter().map(|(path, _)| path).collect();
+        for _ in 0..4 {
+            found.extend(
+                discovery
+                    .next_batch(&fixture.root)
+                    .into_iter()
+                    .map(|(path, _)| path),
+            );
+            if discovery.stack.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(found.len(), MAX_DISCOVERY_ENTRIES + 10);
+        assert!(discovery.stack.is_empty());
+
+        let active = fixture.path("active.jsonl");
+        append(&active, USER_TURN);
+        fixture.change(ChangeKind::Create, &active);
+        append(&active, r#"{"type":"system","subtype":"turn_duration"}"#);
+        // Force discovery to examine only the archive this pass. The active
+        // transcript is outside it and receives no filesystem notification.
+        fixture.runtime.roots[0].discovery.stack = vec![fs::read_dir(&archive).unwrap()];
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        assert_eq!(
+            fixture.session(&active).activity.state().phase(),
+            AgentState::Idle
+        );
+    }
+
+    #[test]
+    fn missing_root_is_reported_again_after_removal_and_recovers() {
+        let mut fixture = Fixture::new();
+        let missing = fixture.path("projects");
+        fixture.runtime.roots[0].path = missing.clone();
+        fixture.runtime.rescan_roots();
+        assert_eq!(fixture.runtime.roots[0].status, Some("directory_missing"));
+        assert!(
+            fixture
+                .output
+                .take_messages()
+                .iter()
+                .any(|m| m["status"] == "directory_missing")
+        );
+        fs::create_dir(&missing).unwrap();
+        fixture.runtime.reconcile_files();
+        assert_eq!(fixture.runtime.roots[0].status, Some("monitoring"));
+        fs::remove_dir(&missing).unwrap();
+        fixture.runtime.reconcile_files();
+        assert_eq!(fixture.runtime.roots[0].status, Some("directory_missing"));
+        assert!(fixture.runtime.roots[0].watcher.is_none());
+    }
+
+    #[test]
+    fn missing_and_invalid_grants_report_actionable_status() {
+        let output = SharedOutput::default();
+        let writer = Arc::new(Mutex::new(ServerWriter::new(output.clone())));
+        let (tx, _rx) = mpsc::sync_channel(MAX_ACTIVITY_QUEUE);
+        let _runtime = MonitorRuntime::new(
+            writer,
+            AgentFlags {
+                claude: true,
+                codex: true,
+            },
+            AgentRoots {
+                claude: vec![],
+                codex: vec![RootGrant {
+                    path: None,
+                    bookmark: Some("invalid".into()),
+                }],
+            },
+            tx,
+        );
+        let messages = output.take_messages();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m["agent"] == "claude" && m["status"] == "access_required")
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m["agent"] == "codex" && m["status"] == "access_denied")
+        );
     }
 
     #[test]

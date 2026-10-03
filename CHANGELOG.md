@@ -8,10 +8,13 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Changed
 
+- Direct builds can select custom Claude Code / Codex session folders from Agent Folders and reset them to the defaults.
 - While muted, the menu-bar keycap reads "muted" and stops striking; while any session is paused it reads "paused".
 
 ### Fixed
 
+- Missing folders, failed monitoring, and unavailable folder grants are shown per agent; invalid saved grants no longer appear as allowed.
+- Large transcript archives are scanned in successive bounded batches, while tracked sessions are checked on every reconciliation.
 - With more than 64 tracked sessions, idle sessions are no longer reopened and closed every few seconds.
 - The app no longer quits when it writes to a monitor that has just exited.
 
@@ -63,4 +66,3 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Session files older than the startup baseline budget are tracked once they are appended to.
 - A creation event for a file that existed before monitoring no longer replays its history.
 - Activity updates are capped at 10 Hz per session, the monitor sleeps between events and bounded metadata reconciliation, and the core event queue is bounded.
-

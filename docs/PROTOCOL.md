@@ -103,6 +103,18 @@ Rules:
 - `metrics`
 - `error`
 
+`ready` confirms the IPC connection, not folder availability. The UI uses per-agent
+`observer_status` messages to report monitoring health:
+
+- `monitoring`: the root is readable and its watcher is installed.
+- `directory_missing`: the configured folder does not exist.
+- `access_required`: the enabled agent has no configured grants.
+- `access_denied`: configured grants could not be resolved, or the root could not be read.
+- `error`: the native watcher could not be installed; metadata polling still retries.
+
+Root status changes are rechecked during reconciliation and emitted only when changed.
+An empty or invalid grant set requires reconfiguration after the user selects a folder.
+
 ## Activity
 
 ```json

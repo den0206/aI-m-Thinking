@@ -97,15 +97,68 @@ struct AgentRootConfiguration: Sendable, Equatable {
 @MainActor
 protocol AgentRootProviding: AnyObject {
     func roots() -> AgentRootConfiguration
+    func isAuthorized(_ service: AgentService) -> Bool
+    func hasSavedRoot(_ service: AgentService) -> Bool
+    func saveRoot(_ url: URL, for service: AgentService) -> FolderChoice
+    func revoke(_ service: AgentService)
+}
+
+extension AgentRootProviding {
+    func chooseRoot(for service: AgentService) -> FolderChoice {
+        let panel = NSOpenPanel()
+        panel.title = "Select \(service.displayName) session folder"
+        panel.message = "aI'm Thinking only reads newly appended session data from this folder."
+        panel.prompt = "Use Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = service.suggestedDirectory.deletingLastPathComponent()
+        guard panel.runModal() == .OK, let url = panel.url else { return .cancelled }
+        return saveRoot(url, for: service)
+    }
 }
 
 @MainActor
 final class DirectAgentRootProvider: AgentRootProviding {
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func directory(for service: AgentService) -> URL {
+        defaults.string(forKey: "agentRootPath.\(service.rawValue)")
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? service.suggestedDirectory
+    }
+
     func roots() -> AgentRootConfiguration {
         AgentRootConfiguration(
-            claude: [.direct(AgentService.claude.suggestedDirectory)],
-            codex: [.direct(AgentService.codex.suggestedDirectory)]
+            claude: [.direct(directory(for: .claude))],
+            codex: [.direct(directory(for: .codex))]
         )
+    }
+
+    func isAuthorized(_ service: AgentService) -> Bool {
+        (try? FileManager.default.contentsOfDirectory(atPath: directory(for: service).path)) != nil
+    }
+
+    func hasSavedRoot(_ service: AgentService) -> Bool {
+        defaults.string(forKey: "agentRootPath.\(service.rawValue)") != nil
+    }
+
+    func saveRoot(_ url: URL, for service: AgentService) -> FolderChoice {
+        if let problem = service.folderProblem(at: url) { return .rejected(problem) }
+        guard (try? FileManager.default.contentsOfDirectory(atPath: url.path)) != nil else {
+            return .rejected("This folder cannot be read. Choose another folder or check its permissions.")
+        }
+        defaults.set(url.path, forKey: "agentRootPath.\(service.rawValue)")
+        return .granted
+    }
+
+    func revoke(_ service: AgentService) {
+        defaults.removeObject(forKey: "agentRootPath.\(service.rawValue)")
     }
 }
 
@@ -132,24 +185,14 @@ final class SandboxAgentRootProvider: AgentRootProviding {
     }
 
     func isAuthorized(_ service: AgentService) -> Bool {
+        transferGrant(for: service) != nil
+    }
+
+    func hasSavedRoot(_ service: AgentService) -> Bool {
         defaults.data(forKey: bookmarkKey(for: service)) != nil
     }
 
-    func chooseRoot(for service: AgentService) -> FolderChoice {
-        let panel = NSOpenPanel()
-        panel.title = "Select \(service.displayName) session folder"
-        panel.message = "aI'm Thinking only reads newly appended session data from this folder."
-        panel.prompt = "Allow Read Access"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = false
-        panel.showsHiddenFiles = true
-        panel.directoryURL = service.suggestedDirectory.deletingLastPathComponent()
-
-        guard panel.runModal() == .OK, let url = panel.url else {
-            return .cancelled
-        }
+    func saveRoot(_ url: URL, for service: AgentService) -> FolderChoice {
         if let problem = service.folderProblem(at: url) {
             return .rejected(problem)
         }
@@ -188,11 +231,17 @@ final class SandboxAgentRootProvider: AgentRootProviding {
             )
 
             guard url.startAccessingSecurityScopedResource() else {
+                releaseActiveURL(for: service)
                 return nil
             }
 
             releaseActiveURL(for: service)
             activeURLs[service] = url
+
+            guard (try? FileManager.default.contentsOfDirectory(atPath: url.path)) != nil else {
+                releaseActiveURL(for: service)
+                return nil
+            }
 
             if stale {
                 let refreshed = try url.bookmarkData(

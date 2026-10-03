@@ -18,6 +18,12 @@ struct MenuContent: View {
 
             if model.requiresFolderAuthorization {
                 folderAccessModule
+            } else {
+                DisclosureGroup("Agent Folders") {
+                    folderAccessRow(service: .claude, authorized: model.claudeFolderAuthorized)
+                    folderAccessRow(service: .codex, authorized: model.codexFolderAuthorized)
+                }
+                .module()
             }
 
             HStack(spacing: 10) {
@@ -56,7 +62,7 @@ struct MenuContent: View {
                 Circle()
                     .fill(coreStatusColor)
                     .frame(width: 6, height: 6)
-                Text(model.coreStatus.label)
+                Text(model.monitorStatusLabel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -71,7 +77,7 @@ struct MenuContent: View {
 
     private var coreStatusColor: Color {
         switch model.coreStatus {
-        case .monitoring: .green
+        case .monitoring: model.observerStatuses.values.contains("monitoring") ? .green : .orange
         case .failed, .unavailable: .orange
         default: .secondary
         }
@@ -79,7 +85,8 @@ struct MenuContent: View {
 
     private func agentTile(_ service: AgentService, state: String) -> some View {
         let paused = model.isPaused(service)
-        let active = state != "Waiting" && state != "Idle" && state != "Paused"
+        let problem = model.observerProblem(for: service)
+        let active = ["Thinking", "Writing", "Tool"].contains(state)
         let unrecognized = !active && model.unrecognizedAgents.contains(service)
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
@@ -115,7 +122,12 @@ struct MenuContent: View {
                     .accessibilityLabel("Pause active \(service.displayName) sessions")
                 }
             }
-            if unrecognized {
+            if let problem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(active ? .white : .orange)
+                    .help("Check Agent Folders below, choose the folder again, or restart the monitor.")
+            } else if unrecognized {
                 Label("Unsupported format", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -153,19 +165,21 @@ struct MenuContent: View {
     private func folderAccessRow(service: AgentService, authorized: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(service.displayName)
-                Spacer()
-
-                if authorized {
-                    Text("Allowed")
-                        .foregroundStyle(.secondary)
-
-                    Button("Revoke") {
-                        model.revokeFolder(for: service)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(service.displayName)
+                    if authorized {
+                        Text(model.requiresFolderAuthorization ? "Allowed" : "Ready")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                } else {
-                    Button("Choose Folder…") {
-                        model.authorizeFolder(for: service)
+                }
+                Spacer()
+                Button(authorized ? "Change…" : "Choose Folder…") {
+                    model.authorizeFolder(for: service)
+                }
+                if model.hasSavedFolder(for: service) {
+                    Button(model.requiresFolderAuthorization ? "Revoke" : "Reset") {
+                        model.revokeFolder(for: service)
                     }
                 }
             }
