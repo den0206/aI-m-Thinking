@@ -20,6 +20,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var startAtLogin: Bool
     @Published private(set) var claudeFolderAuthorized = false
     @Published private(set) var codexFolderAuthorized = false
+    /// Why the last folder a user chose for an agent was rejected.
+    @Published private(set) var folderErrors: [AgentService: String] = [:]
+    @Published private(set) var onboardingCompleted: Bool
 
     let distributionMode: DistributionMode
     let keyPress = KeyPressAnimator()
@@ -63,6 +66,7 @@ final class AppModel: ObservableObject {
         typingSpeed = initialSpeed
         muted = initialMuted
         startAtLogin = LoginItemManager.isEnabled
+        onboardingCompleted = defaults.bool(forKey: "onboardingCompleted")
 
         let audio = KeyboardAudioEngine(pack: storedPack ?? SoundPackID.allCases.randomElement()!)
         audio.volume = initialVolume
@@ -111,11 +115,39 @@ final class AppModel: ObservableObject {
     }
 
     func authorizeFolder(for service: AgentService) {
-        guard let sandboxProvider, sandboxProvider.chooseRoot(for: service) else {
+        guard let sandboxProvider else {
             return
         }
-        refreshAuthorizationState()
-        restartCore()
+        switch sandboxProvider.chooseRoot(for: service) {
+        case .cancelled:
+            return
+        case .rejected(let message):
+            folderErrors[service] = message
+        case .granted:
+            folderErrors[service] = nil
+            refreshAuthorizationState()
+            restartCore()
+        }
+    }
+
+    func isFolderAuthorized(_ service: AgentService) -> Bool {
+        switch service {
+        case .claude: claudeFolderAuthorized
+        case .codex: codexFolderAuthorized
+        }
+    }
+
+    /// The App Store build can do nothing until at least one folder is allowed.
+    var canFinishOnboarding: Bool {
+        !requiresFolderAuthorization || claudeFolderAuthorized || codexFolderAuthorized
+    }
+
+    func completeOnboarding() {
+        guard canFinishOnboarding, !onboardingCompleted else {
+            return
+        }
+        onboardingCompleted = true
+        defaults.set(true, forKey: "onboardingCompleted")
     }
 
     func revokeFolder(for service: AgentService) {
@@ -132,6 +164,11 @@ final class AppModel: ObservableObject {
     func stopCore() {
         resetActivity()
         bridge.stop()
+    }
+
+    func quit() {
+        stopCore()
+        NSApplication.shared.terminate(nil)
     }
 
     func copyDiagnosticLog() {

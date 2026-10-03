@@ -141,6 +141,9 @@ CONFIG=appstore-smoke ./scripts/build-app.sh
 - [ ] Rust helper has `com.apple.security.app-sandbox`
 - [ ] Rust helper has `com.apple.security.inherit`
 - [ ] Rust helper does not have broad user-selected file entitlement
+- [ ] first App Store-mode launch opens the welcome window; Done and the close button stay disabled until a folder is allowed
+- [ ] choosing `~/.codex/sessions` or `~/.claude` for Claude Code shows a red error and saves nothing
+- [ ] the welcome window does not reappear after Done
 - [ ] Claude folder shows unauthorized on first App Store-mode launch
 - [ ] selecting `~/.claude/projects` enables monitoring
 - [ ] Codex folder shows unauthorized on first App Store-mode launch

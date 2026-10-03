@@ -74,10 +74,10 @@ App Store mode does not automatically traverse those locations. The user explici
 
 For each supported agent:
 
-1. User opens the menu-bar app.
-2. `Agent Folder Access` shows Claude Code / Codex authorization state.
-3. User chooses `Choose Folder…`.
-4. `NSOpenPanel` requests a directory.
+1. On first launch a welcome window shows Claude Code / Codex authorization state; it stays open until at least one folder is allowed or the user quits. Later, the menu's `Agent Folder Access` shows the same state.
+2. User chooses `Choose Folder…`.
+3. `NSOpenPanel` requests a directory.
+4. The app checks the folder looks like that agent's session folder (named `projects` / `sessions`, not the other agent's layout). Otherwise it shows a red error under that agent and saves nothing.
 5. The app creates a read-only security-scoped bookmark.
 6. Only bookmark data is persisted in the app's UserDefaults container.
 7. At monitor start, the app resolves the bookmark and refreshes it if stale.

@@ -119,21 +119,27 @@ struct MenuContent: View {
     }
 
     private func folderAccessRow(service: AgentService, authorized: Bool) -> some View {
-        HStack {
-            Text(service.displayName)
-            Spacer()
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(service.displayName)
+                Spacer()
 
-            if authorized {
-                Text("Allowed")
-                    .foregroundStyle(.secondary)
+                if authorized {
+                    Text("Allowed")
+                        .foregroundStyle(.secondary)
 
-                Button("Revoke") {
-                    model.revokeFolder(for: service)
+                    Button("Revoke") {
+                        model.revokeFolder(for: service)
+                    }
+                } else {
+                    Button("Choose Folder…") {
+                        model.authorizeFolder(for: service)
+                    }
                 }
-            } else {
-                Button("Choose Folder…") {
-                    model.authorizeFolder(for: service)
-                }
+            }
+
+            if let error = model.folderErrors[service] {
+                FolderErrorLabel(message: error)
             }
         }
     }
@@ -267,8 +273,7 @@ struct MenuContent: View {
             .buttonStyle(.plain)
 
             Button("Quit aI'm Thinking") {
-                model.stopCore()
-                NSApplication.shared.terminate(nil)
+                model.quit()
             }
             .buttonStyle(.plain)
             .keyboardShortcut("q")
@@ -335,7 +340,7 @@ private extension View {
     }
 }
 
-private extension AgentService {
+extension AgentService {
     /// Brand tints from den0206/account-switcher (#d97757 / #10a37f),
     /// darkened so the white tile text keeps 4.5:1 contrast.
     var tint: Color {

@@ -8,6 +8,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Added
 
+- A first-launch window points to the menu-bar icon and offers Start at Login. In the App Store build it also asks for the Claude Code / Codex session folders and cannot be dismissed until at least one is allowed (Quit stays available).
+- Choosing a folder that is not the agent's session folder (for example the Codex folder for Claude Code, or `~/.claude` instead of `~/.claude/projects`) shows a red error under that agent and is not saved.
 - Agents whose transcripts stop producing recognizable records (for example after a Claude Code / Codex update changes the format) are flagged as "Unsupported format" in the menu, and the diagnostic log records each session's agent CLI version.
 - Copy Diagnostic Log shares bounded, in-memory monitoring metadata without transcript content or file paths.
 - Recorded keyboard sounds, random sound selection per turn, a speed slider, and an animated menu-bar keycap.

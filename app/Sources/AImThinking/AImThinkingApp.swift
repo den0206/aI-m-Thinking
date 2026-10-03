@@ -17,6 +17,14 @@ struct AImThinkingApp: App {
                 .accessibilityLabel(displayName)
         }
         .menuBarExtraStyle(.window)
+
+        Window("Welcome to \(displayName)", id: OnboardingView.windowID) {
+            OnboardingView(model: model)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(model.onboardingCompleted ? .suppressed : .presented)
     }
 }
 
