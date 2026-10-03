@@ -12,6 +12,8 @@
 
 Claude Code / Codex の活動を検知し、思考・生成・編集の強さに合わせてキーボード音を鳴らす macOS メニューバーアプリです。
 
+穏やかに続くタイピング音にはリラックス効果があり、作業用BGMとしても使えます。
+
 <p align="center">
   <img src="media/demo-paper.gif" width="720" alt="デモ: Claude Code の思考・生成・ツール実行・待機に合わせてメニューバーのキーとキーボード音が変化する様子">
 </p>
