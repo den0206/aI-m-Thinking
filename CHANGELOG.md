@@ -9,6 +9,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 ### Fixed
 
 - With more than 64 tracked sessions, idle sessions are no longer reopened and closed every few seconds.
+- The app no longer quits when it writes to a monitor that has just exited.
 
 ## [0.1.0] — 2026-10-03
 

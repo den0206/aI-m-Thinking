@@ -4,6 +4,12 @@ import SwiftUI
 struct AImThinkingApp: App {
     @StateObject private var model = AppModel()
 
+    init() {
+        // A write to a core that just exited must fail with EPIPE, which
+        // CoreBridge handles, instead of killing the app.
+        signal(SIGPIPE, SIG_IGN)
+    }
+
     private var displayName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? "aI'm Thinking"
