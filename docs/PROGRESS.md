@@ -8,6 +8,17 @@ During initial development, work is committed directly to `main`. Commits are gr
 
 ## Status
 
+## Latest main status
+
+Repository: `den0206/aI-m-Thinking`
+
+Current main includes the renamed aI'm Thinking app, recorded keyboard sounds, Random sound packs, typing-speed control, Liquid Glass menu UI, missed-notification reconciliation, unsupported transcript-format detection, cleanup tooling, and README demo media.
+
+Recent validated CI on main:
+- App run `37095162102` — success
+- Core run `37094633056` — success
+
+
 | Phase | Scope | Status | Commit |
 |---|---|---|---|
 | Phase 0 | Contracts and implementation rules | Complete | `fd938fa` |
