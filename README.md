@@ -170,7 +170,6 @@ See the [Release Guide](docs/RELEASE.md) for required secrets and certificate se
 - [Parser Rules](docs/PARSER_RULES.md)
 - [IPC Protocol](docs/PROTOCOL.md)
 - [Resource Limits](docs/RESOURCE_LIMITS.md)
-- [Implementation Progress](docs/PROGRESS.md)
 - [CHANGELOG](CHANGELOG.md)
 
 ## Project layout
@@ -189,7 +188,7 @@ docs/                   Design / development / release documents
 
 ## Status
 
-Implementation progress and pending on-device checks are tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
+Pending on-device checks are tracked in the [Manual Verification Checklist](docs/checklists/manual-verification.md).
 
 ## License
 

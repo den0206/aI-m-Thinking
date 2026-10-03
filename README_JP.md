@@ -170,7 +170,6 @@ git push origin release/Ver_0.1.0
 - [Parser Rules](docs/PARSER_RULES.md)
 - [IPC Protocol](docs/PROTOCOL.md)
 - [Resource Limits](docs/RESOURCE_LIMITS.md)
-- [Implementation Progress](docs/PROGRESS.md)
 - [CHANGELOG](CHANGELOG.md)
 
 ## Project layout
@@ -189,7 +188,7 @@ docs/                   Design / development / release documents
 
 ## Status
 
-実装進捗と未完了の実機確認項目は [docs/PROGRESS.md](docs/PROGRESS.md) に記録しています。
+未完了の実機確認項目は [Manual Verification Checklist](docs/checklists/manual-verification.md) に記録しています。
 
 ## ライセンス
 

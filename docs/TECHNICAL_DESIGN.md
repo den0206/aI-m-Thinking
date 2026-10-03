@@ -1059,7 +1059,6 @@ aI-m-Thinking/
 │   ├── PARSER_RULES.md
 │   ├── NORMALIZED_EVENTS.md
 │   ├── RESOURCE_LIMITS.md
-│   ├── PROGRESS.md
 │   └── checklists/manual-verification.md
 ├── CHANGELOG.md
 └── README.md
