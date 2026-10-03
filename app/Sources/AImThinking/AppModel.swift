@@ -6,6 +6,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var coreStatus: CoreStatus = .stopped
     @Published private(set) var claudeState = "Waiting"
     @Published private(set) var codexState = "Waiting"
+    /// Agents whose transcripts the core could not understand, typically
+    /// after a CLI update changed the format. Cleared when that agent shows
+    /// activity again or monitoring restarts.
+    @Published private(set) var unrecognizedAgents: Set<AgentService> = []
     /// nil means Random: a new pack is drawn whenever an agent starts a turn.
     @Published private(set) var soundPack: SoundPackID?
     @Published private(set) var volume: Double
@@ -142,6 +146,7 @@ final class AppModel: ObservableObject {
         keyPress.update(active: false, intensity: 0)
         claudeState = "Waiting"
         codexState = "Waiting"
+        unrecognizedAgents.removeAll()
     }
 
     func selectSoundPack(_ pack: SoundPackID?) {
@@ -196,6 +201,12 @@ final class AppModel: ObservableObject {
     }
 
     func handle(_ message: CoreMessage) {
+        if message.type == "error", message.code == "PARSE3006",
+           let agent = message.component.flatMap(AgentService.init(rawValue:)) {
+            unrecognizedAgents.insert(agent)
+            return
+        }
+
         if message.type == "session_closed", let session = message.session {
             activities.removeValue(forKey: session)
             updateGlobalAudio()
@@ -209,6 +220,9 @@ final class AppModel: ObservableObject {
               let intensity = message.intensity
         else {
             return
+        }
+        if let service = AgentService(rawValue: agent), phase != "idle" {
+            unrecognizedAgents.remove(service)
         }
 
         // Each session draws its own pack when a turn starts, avoiding packs

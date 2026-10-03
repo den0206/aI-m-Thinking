@@ -79,12 +79,20 @@ struct MenuContent: View {
 
     private func agentTile(_ service: AgentService, state: String) -> some View {
         let active = state != "Waiting" && state != "Idle"
+        let unrecognized = !active && model.unrecognizedAgents.contains(service)
         return VStack(alignment: .leading, spacing: 2) {
             Text(service.displayName)
                 .font(.callout.weight(.semibold))
-            Text(active ? "\(state)…" : state)
-                .font(.caption)
-                .foregroundStyle(active ? AnyShapeStyle(.white.opacity(0.9)) : AnyShapeStyle(.secondary))
+            if unrecognized {
+                Label("Unsupported format", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .help("This \(service.displayName) version writes transcripts this app cannot read yet. Update aI'm Thinking or share the diagnostic log.")
+            } else {
+                Text(active ? "\(state)…" : state)
+                    .font(.caption)
+                    .foregroundStyle(active ? AnyShapeStyle(.white.opacity(0.9)) : AnyShapeStyle(.secondary))
+            }
         }
         .foregroundStyle(active ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         .padding(10)

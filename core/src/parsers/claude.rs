@@ -19,6 +19,11 @@ impl ClaudeParser {
     pub fn parse_record<R: Read>(&mut self, reader: R) -> serde_json::Result<ParsedRecord> {
         let record: ClaudeRecord = serde_json::from_reader(reader)?;
         let mut out = Vec::new();
+        // Subagents and long commands write runs of `progress` rows mid-turn.
+        let quiet = matches!(
+            record.kind.as_deref(),
+            Some("progress" | "file-history-snapshot" | "summary" | "queue-operation" | "system")
+        ) || record.is_meta == Some(true);
 
         match record.kind.as_deref() {
             Some("assistant") => {
@@ -36,6 +41,8 @@ impl ClaudeParser {
         Ok(ParsedRecord {
             events: out,
             timestamp_ms: record.timestamp.as_deref().and_then(parse_utc_ms),
+            agent_version: record.version,
+            quiet,
         })
     }
 
@@ -137,6 +144,7 @@ struct ClaudeRecord {
     #[serde(rename = "type")]
     kind: Option<String>,
     timestamp: Option<String>,
+    version: Option<String>,
     #[serde(rename = "isMeta")]
     is_meta: Option<bool>,
     origin: Option<ClaudeOrigin>,

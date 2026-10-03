@@ -10,6 +10,7 @@ struct CoreMessage: Decodable {
     let toolClass: String?
     let status: String?
     let code: String?
+    let component: String?
     let recoverable: Bool?
 
     enum CodingKeys: String, CodingKey {
@@ -22,6 +23,7 @@ struct CoreMessage: Decodable {
         case toolClass = "tool_class"
         case status
         case code
+        case component
         case recoverable
     }
 }

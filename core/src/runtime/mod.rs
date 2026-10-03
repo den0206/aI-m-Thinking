@@ -45,6 +45,13 @@ const HISTORY_AGE: Duration = Duration::from_secs(10 * 60);
 const MAX_STATUS_FILE_BYTES: u64 = 16 * 1024;
 /// serde_json reads one byte per `read()` call, so records are buffered.
 const PARSE_BUFFER_BYTES: usize = 8 * 1024;
+/// Records a session may write without any of them being understood before
+/// the transcript format is reported as unrecognized. Live records count
+/// unless their kind is known to be quiet; malformed records count whatever
+/// their age, since their timestamp is unreadable. Every active turn writes
+/// recognized records well before this, so reaching it means the agent
+/// changed its format (or the parser regressed), not that it was quiet.
+const UNRECOGNIZED_FORMAT_RECORDS: u32 = 100;
 
 pub enum MonitorCommand {
     Rescan,
@@ -158,9 +165,31 @@ struct Session {
     last_phase: AgentState,
     last_emitted_intensity: f32,
     last_emit_at: Option<Duration>,
+    /// Live records seen while none has produced an event; `None` once one
+    /// has, or once the format warning was sent.
+    unrecognized_records: Option<u32>,
+    agent_version: Option<String>,
 }
 
 impl Session {
+    /// Returns true exactly once, when the session reaches
+    /// `UNRECOGNIZED_FORMAT_RECORDS` live records without an event.
+    fn count_unrecognized(&mut self, recognized: bool) -> bool {
+        let Some(count) = self.unrecognized_records.as_mut() else {
+            return false;
+        };
+        if recognized {
+            self.unrecognized_records = None;
+            return false;
+        }
+        *count += 1;
+        if *count < UNRECOGNIZED_FORMAT_RECORDS {
+            return false;
+        }
+        self.unrecognized_records = None;
+        true
+    }
+
     fn mutation_tool(&self) -> Option<ToolClass> {
         self.activity
             .state()
@@ -596,6 +625,8 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             last_phase: AgentState::Idle,
             last_emitted_intensity: 0.0,
             last_emit_at: None,
+            unrecognized_records: Some(0),
+            agent_version: None,
         };
 
         self.sessions.insert(path, session);
@@ -666,6 +697,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             }
         };
 
+        let mut unrecognized = false;
         for range in result.records {
             let parsed = match record_reader(&mut session.file, range) {
                 Ok(reader) => session.parser.parse(reader),
@@ -686,9 +718,27 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                         error.classify(),
                         range.start
                     );
+                    unrecognized |= session.count_unrecognized(false);
                     continue;
                 }
             };
+
+            if let Some(version) = record
+                .agent_version
+                .as_deref()
+                .map(sanitize_version)
+                .filter(|version| !version.is_empty())
+            {
+                if session.agent_version.as_deref() != Some(version.as_str()) {
+                    eprintln!(
+                        "IM_DIAGNOSTIC session={} agent={} agent_version={}",
+                        session.handle,
+                        session.agent.as_str(),
+                        version
+                    );
+                    session.agent_version = Some(version);
+                }
+            }
 
             if session
                 .interrupted_through
@@ -704,6 +754,9 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             let history = record
                 .timestamp_ms
                 .is_some_and(|written| written < history_before_ms);
+            if !history && !record.quiet {
+                unrecognized |= session.count_unrecognized(!record.events.is_empty());
+            }
             for event in record.events {
                 let kind = match &event {
                     NormalizedEvent::TurnStart => "turn_start",
@@ -737,6 +790,16 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             .seek(io::SeekFrom::End(0))
             .unwrap_or(session.cursor.scan_offset());
         session.dirty = session.cursor.scan_offset() < eof;
+
+        if unrecognized {
+            let agent = session.agent;
+            eprintln!(
+                "IM_DIAGNOSTIC session={} agent={} unrecognized_format",
+                session.handle,
+                agent.as_str()
+            );
+            self.with_writer(|writer| writer.error("warning", "PARSE3006", agent.as_str(), true));
+        }
     }
 
     fn expire_stale_turns(&mut self) {
@@ -882,6 +945,14 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             let _ = action(&mut writer);
         }
     }
+}
+
+/// Keeps a transcript-supplied version safe to print on one diagnostic line.
+fn sanitize_version(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+' | '_'))
+        .take(32)
+        .collect()
 }
 
 fn wall_clock_ms() -> i64 {
@@ -1281,6 +1352,57 @@ mod tests {
             fixture.session(&path).activity.state().phase(),
             AgentState::Idle
         );
+    }
+
+    fn format_warnings(output: &SharedOutput) -> usize {
+        output
+            .take_messages()
+            .iter()
+            .filter(|message| message["code"] == "PARSE3006")
+            .count()
+    }
+
+    #[test]
+    fn quiet_records_observed_mid_turn_are_not_reported() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("subagent.jsonl");
+        for _ in 0..UNRECOGNIZED_FORMAT_RECORDS * 2 {
+            append(&path, r#"{"type":"progress"}"#);
+        }
+
+        fixture.change(ChangeKind::Create, &path);
+
+        assert_eq!(format_warnings(&fixture.output), 0);
+    }
+
+    #[test]
+    fn unrecognized_transcript_format_is_reported_once() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("future.jsonl");
+        for _ in 0..UNRECOGNIZED_FORMAT_RECORDS * 2 {
+            append(
+                &path,
+                r#"{"type":"model_output","body":[{"kind":"reasoning"}]}"#,
+            );
+        }
+
+        fixture.change(ChangeKind::Create, &path);
+
+        assert_eq!(format_warnings(&fixture.output), 1);
+    }
+
+    #[test]
+    fn recognized_transcript_format_is_not_reported() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("current.jsonl");
+        append(&path, USER_TURN);
+        for _ in 0..UNRECOGNIZED_FORMAT_RECORDS * 2 {
+            append(&path, r#"{"type":"progress"}"#);
+        }
+
+        fixture.change(ChangeKind::Create, &path);
+
+        assert_eq!(format_warnings(&fixture.output), 0);
     }
 
     #[test]

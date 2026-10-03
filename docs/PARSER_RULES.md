@@ -95,6 +95,10 @@ Usage counter decreases are treated as reset/rebaseline, never as a negative act
 
 Every record's own `timestamp` is compared with the wall clock. Records written more than 10 minutes before they are observed (a restored rollout, a creation event for an old file) update session state but never produce sound or "awaiting model" activity.
 
+## Unrecognized format
+
+A session that writes 100 records without any of them producing an event is reported once with the warning `PARSE3006` (`component` = `claude` / `codex`). Records older than the history guard and quiet kinds are not counted: Claude `progress`, `file-history-snapshot`, `summary`, `queue-operation`, `system`, and `isMeta` rows; Codex `session_meta`, `turn_context`, `token_usage_record`, `compacted`, and `event_msg` `token_count`. Malformed records always count. The app marks the agent "Unsupported format" until that agent reports activity again or monitoring restarts.
+
 ## Measuring accuracy
 
 `cargo run --example replay_eval -- <claude transcript.jsonl>` replays a real Claude Code transcript on its own clock and prints, per ground-truth interval (model generating / tool running / idle), how much time was audible and how often the reported phase matched. Only aggregate numbers are printed.

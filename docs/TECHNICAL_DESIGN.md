@@ -736,6 +736,7 @@ PARSE3002 UnsupportedRecord
 PARSE3003 PartialRecord
 PARSE3004 RecordTooComplex
 PARSE3005 CounterReset
+PARSE3006 UnrecognizedFormat
 ```
 
 ### Activity

@@ -20,6 +20,11 @@ impl CodexParser {
     pub fn parse_record<R: Read>(&mut self, reader: R) -> serde_json::Result<ParsedRecord> {
         let record: CodexRecord = serde_json::from_reader(reader)?;
         let mut out = Vec::new();
+        let quiet = match record.kind.as_deref() {
+            Some("session_meta" | "turn_context" | "token_usage_record" | "compacted") => true,
+            Some("event_msg") => record.payload.kind.as_deref() == Some("token_count"),
+            _ => false,
+        };
 
         match record.kind.as_deref() {
             Some("response_item") => self.response(&record.payload, &mut out),
@@ -31,6 +36,8 @@ impl CodexParser {
         Ok(ParsedRecord {
             events: out,
             timestamp_ms: record.timestamp.as_deref().and_then(parse_utc_ms),
+            agent_version: record.payload.cli_version,
+            quiet,
         })
     }
 
@@ -236,6 +243,8 @@ struct CodexPayload {
     phase: Option<String>,
     delivery: Option<String>,
     status: Option<String>,
+    /// Present on `session_meta` records.
+    cli_version: Option<String>,
     call_id: Option<String>,
     id: Option<String>,
     item: Option<Box<CodexPayload>>,

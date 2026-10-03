@@ -82,6 +82,11 @@ pub enum NormalizedEvent {
 pub struct ParsedRecord {
     pub events: Vec<NormalizedEvent>,
     pub timestamp_ms: Option<i64>,
+    /// Version of the agent CLI that wrote the record, when it says so.
+    pub agent_version: Option<String>,
+    /// A record kind that never carries activity (bookkeeping, progress).
+    /// It is neither evidence of a format change nor of a working parser.
+    pub quiet: bool,
 }
 
 /// Classifies Claude Code and Codex tool names. Unknown names are `Generic`.

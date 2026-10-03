@@ -150,6 +150,8 @@ Activity updates are capped at about 10 Hz per session. Phase transitions may be
 }
 ```
 
+`PARSE3006` (unrecognized transcript format) uses the agent name, `claude` or `codex`, as `component`. See `docs/PARSER_RULES.md`.
+
 Error payloads must not contain transcript paths, raw records, prompts, reasoning, source code, tool arguments, or tool output.
 
 ## Shutdown
