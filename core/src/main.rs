@@ -69,6 +69,13 @@ fn run() -> io::Result<()> {
                     monitor.rescan();
                 }
             }
+            ClientCommand::SetSessionPaused {
+                session, paused, ..
+            } => {
+                if let Some(monitor) = &monitor {
+                    monitor.set_session_paused(session, paused);
+                }
+            }
             ClientCommand::Shutdown { .. } => break,
         }
     }

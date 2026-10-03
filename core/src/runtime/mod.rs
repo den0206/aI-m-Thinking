@@ -55,6 +55,7 @@ const UNRECOGNIZED_FORMAT_RECORDS: u32 = 100;
 
 pub enum MonitorCommand {
     Rescan,
+    SetSessionPaused { session: u32, paused: bool },
     Shutdown,
 }
 
@@ -71,6 +72,10 @@ pub struct MonitorHandle {
 impl MonitorHandle {
     pub fn rescan(&self) {
         self.send(MonitorCommand::Rescan);
+    }
+
+    pub fn set_session_paused(&self, session: u32, paused: bool) {
+        self.send(MonitorCommand::SetSessionPaused { session, paused });
     }
 
     pub fn shutdown(self) {
@@ -161,6 +166,7 @@ struct Session {
     /// Records that were already present when an external idle signal arrived
     /// must not reopen the interrupted turn, even across scan budgets.
     interrupted_through: Option<u64>,
+    paused: bool,
     last_event_at: Duration,
     last_phase: AgentState,
     last_emitted_intensity: f32,
@@ -325,6 +331,33 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             MonitorCommand::Rescan => {
                 self.reconcile_files();
                 self.rescan_roots();
+            }
+            MonitorCommand::SetSessionPaused {
+                session: handle,
+                paused,
+            } => {
+                let now = self.now();
+                if let Some(session) = self
+                    .sessions
+                    .values_mut()
+                    .find(|session| session.handle == handle)
+                {
+                    if session.paused == paused {
+                        return;
+                    }
+                    session.paused = paused;
+                    // Ignore all data written before this command, including partial records.
+                    session.interrupted_through =
+                        session.file.metadata().ok().map(|metadata| metadata.len());
+                    session.activity = ActivityEngine::with_pending_timeout(
+                        now,
+                        match session.agent {
+                            AgentKind::Claude => Duration::from_secs(120),
+                            AgentKind::Codex => STALE_TURN_TIMEOUT,
+                        },
+                    );
+                    session.last_event_at = now;
+                }
             }
             MonitorCommand::Shutdown => {}
         }
@@ -621,6 +654,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             ),
             dirty,
             interrupted_through: None,
+            paused: false,
             last_event_at: now,
             last_phase: AgentState::Idle,
             last_emitted_intensity: 0.0,
@@ -637,7 +671,11 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         let candidate = self
             .sessions
             .iter()
-            .filter(|(_, session)| session.activity.state().phase() == AgentState::Idle)
+            // A paused session must stay tracked, or its next append would
+            // reattach it unpaused and resume it without the user.
+            .filter(|(_, session)| {
+                !session.paused && session.activity.state().phase() == AgentState::Idle
+            })
             .min_by_key(|(_, session)| session.last_event_at)
             .map(|(path, _)| path.clone());
 
@@ -740,9 +778,10 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                 }
             }
 
-            if session
-                .interrupted_through
-                .is_some_and(|offset| range.start < offset)
+            if session.paused
+                || session
+                    .interrupted_through
+                    .is_some_and(|offset| range.start < offset)
             {
                 eprintln!(
                     "IM_DIAGNOSTIC session={} interrupted_record_ignored",
@@ -1175,6 +1214,82 @@ mod tests {
 
     const USER_TURN: &str = r#"{"type":"user","message":{"content":"x"}}"#;
     const THINKING: &str = r#"{"type":"assistant","message":{"content":[{"type":"thinking"}]}}"#;
+
+    #[test]
+    fn paused_session_ignores_activity_until_manual_resume_without_replaying_backlog() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("paused.jsonl");
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Create, &path);
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Modify, &path);
+        let handle = fixture.session(&path).handle;
+        fixture
+            .runtime
+            .handle_command(MonitorCommand::SetSessionPaused {
+                session: handle,
+                paused: true,
+            });
+        append(&path, THINKING);
+        fixture.change(ChangeKind::Modify, &path);
+        assert!(fixture.session(&path).paused);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        let other = fixture.path("other.jsonl");
+        append(&other, USER_TURN);
+        fixture.change(ChangeKind::Create, &other);
+        append(&other, USER_TURN);
+        fixture.change(ChangeKind::Modify, &other);
+        assert_eq!(
+            fixture.session(&other).activity.state().phase(),
+            AgentState::Thinking
+        );
+        // An append without a notification must not replay on resume.
+        append(&path, USER_TURN);
+        fixture
+            .runtime
+            .handle_command(MonitorCommand::SetSessionPaused {
+                session: handle,
+                paused: false,
+            });
+        fixture.change(ChangeKind::Modify, &path);
+        assert!(!fixture.session(&path).paused);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        append(&path, THINKING);
+        fixture.change(ChangeKind::Modify, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+    }
+
+    #[test]
+    fn paused_session_is_not_evicted_at_the_session_cap() {
+        let mut fixture = Fixture::new();
+        let paused = fixture.path("paused.jsonl");
+        append(&paused, USER_TURN);
+        fixture.change(ChangeKind::Create, &paused);
+        let handle = fixture.session(&paused).handle;
+        fixture
+            .runtime
+            .handle_command(MonitorCommand::SetSessionPaused {
+                session: handle,
+                paused: true,
+            });
+        for i in 0..MAX_ACTIVE_SESSIONS {
+            fixture.advance(Duration::from_millis(1));
+            let path = fixture.path(&format!("idle-{i}.jsonl"));
+            std::fs::write(&path, "").unwrap();
+            fixture.change(ChangeKind::Create, &path);
+        }
+        assert_eq!(fixture.runtime.sessions.len(), MAX_ACTIVE_SESSIONS);
+        assert!(fixture.session(&paused).paused);
+    }
 
     #[test]
     fn reconciliation_detects_codex_appends_without_notifications() {

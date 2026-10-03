@@ -154,6 +154,10 @@ final class CoreBridge {
         }
     }
 
+    func setSessionPaused(_ session: UInt32, paused: Bool) {
+        send(["v": 1, "type": "set_session_paused", "session": session, "paused": paused])
+    }
+
     func rescan() {
         send(["v": 1, "type": "rescan"])
     }

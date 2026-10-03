@@ -6,6 +6,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var coreStatus: CoreStatus = .stopped
     @Published private(set) var claudeState = "Waiting"
     @Published private(set) var codexState = "Waiting"
+    @Published private(set) var pausedSessions: Set<UInt32> = []
     /// Agents whose transcripts the core could not understand, typically
     /// after a CLI update changed the format. Cleared when that agent shows
     /// activity again or monitoring restarts.
@@ -182,6 +183,7 @@ final class AppModel: ObservableObject {
     }
 
     private func resetActivity() {
+        pausedSessions.removeAll()
         activities.removeAll(keepingCapacity: false)
         scheduler.stop()
         audio.stop()
@@ -261,6 +263,7 @@ final class AppModel: ObservableObject {
         }
 
         if message.type == "session_closed", let session = message.session {
+            pausedSessions.remove(session)
             activities.removeValue(forKey: session)
             updateGlobalAudio()
             return
@@ -277,6 +280,8 @@ final class AppModel: ObservableObject {
         if let service = AgentService(rawValue: agent), phase != "idle" {
             unrecognizedAgents.remove(service)
         }
+
+        guard !pausedSessions.contains(session) else { return }
 
         // Each session draws its own pack when a turn starts, avoiding packs
         // other sessions are using so they stay distinguishable.
@@ -300,15 +305,43 @@ final class AppModel: ObservableObject {
         updateGlobalAudio()
     }
 
+    func isPaused(_ service: AgentService) -> Bool {
+        activities.contains { $0.value.agent == service.rawValue && pausedSessions.contains($0.key) }
+    }
+
+    func pauseSessions(for service: AgentService) {
+        let sessions = activities.filter { $0.value.agent == service.rawValue && !pausedSessions.contains($0.key)
+            && $0.value.phase != "idle" && $0.value.intensity >= 0.06 }.keys
+        for session in sessions {
+            pausedSessions.insert(session)
+            bridge.setSessionPaused(session, paused: true)
+        }
+        updateGlobalAudio()
+    }
+
+    func resumeSessions(for service: AgentService) {
+        for session in pausedSessions.filter({ activities[$0]?.agent == service.rawValue }) {
+            pausedSessions.remove(session)
+            if let previous = activities[session] {
+                activities[session] = ActivityState(agent: previous.agent, phase: "idle", intensity: 0,
+                    toolClass: nil, pack: previous.pack)
+            }
+            bridge.setSessionPaused(session, paused: false)
+        }
+        updateGlobalAudio()
+    }
+
     private func updateGlobalAudio() {
         // The icon animates even when muted.
-        let busy = activities.values.filter { $0.phase != "idle" && $0.intensity >= 0.06 }
+        let monitored = activities.filter { !pausedSessions.contains($0.key) }.map(\.value)
+        let busy = monitored.filter { $0.phase != "idle" && $0.intensity >= 0.06 }
         keyPress.update(active: !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
 
-        for agent in ["claude", "codex"] {
-            let phase = activities.values
+        for service in AgentService.allCases {
+            let agent = service.rawValue
+            let phase = monitored
                 .filter { $0.agent == agent && $0.phase != "idle" && $0.intensity >= 0.06 }
-                .max(by: { $0.intensity < $1.intensity })?.phase ?? "idle"
+                .max(by: { $0.intensity < $1.intensity })?.phase ?? (isPaused(service) ? "paused" : "idle")
             if agent == "claude" { claudeState = phase.capitalized }
             else { codexState = phase.capitalized }
         }

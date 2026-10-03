@@ -208,3 +208,54 @@ private let soundsDirectory = URL(filePath: #filePath)
     .deletingLastPathComponent()
     .appending(path: "../../Resources/Sounds")
     .standardized
+
+@Test @MainActor
+func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
+    let suite = "im-thinking-test-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(true, forKey: "muted")
+    let model = AppModel(defaults: defaults, startMonitoring: false)
+    func activity(_ session: Int, _ agent: String, _ intensity: Double) throws -> CoreMessage {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "v": 1, "type": "activity", "session": session, "agent": agent,
+            "phase": "thinking", "intensity": intensity
+        ])
+        return try JSONDecoder().decode(CoreMessage.self, from: data)
+    }
+    model.handle(try activity(1, "claude", 0.8))
+    model.handle(try activity(2, "claude", 0.4))
+    model.handle(try activity(3, "codex", 0.5))
+    model.pauseSessions(for: .claude)
+    #expect(model.pausedSessions == [1, 2]) // Every active Claude session.
+    #expect(model.claudeState == "Paused")
+    #expect(model.codexState == "Thinking")
+    #expect(model.keyPress.isAnimating) // Codex continues.
+    model.handle(try activity(1, "claude", 1))
+    #expect(model.claudeState == "Paused")
+    // A session that starts after the pause is monitored and can be paused too.
+    model.handle(try activity(4, "claude", 0.4))
+    #expect(model.claudeState == "Thinking")
+    model.pauseSessions(for: .claude)
+    #expect(model.pausedSessions == [1, 2, 4])
+    model.resumeSessions(for: .claude)
+    #expect(model.pausedSessions.isEmpty)
+    #expect(model.claudeState == "Idle")
+    model.handle(try activity(1, "claude", 0.4))
+    #expect(model.claudeState == "Thinking")
+    model.pauseSessions(for: .claude)
+    let closed = try JSONDecoder().decode(CoreMessage.self, from: Data(
+        #"{"v":1,"type":"session_closed","session":1}"#.utf8))
+    model.handle(closed)
+    #expect(!model.isPaused(.claude))
+    model.handle(try activity(6, "claude", 0.8))
+    model.pauseSessions(for: .claude)
+    model.handle(try activity(7, "claude", 0.4))
+    #expect(model.isPaused(.claude))
+    #expect(model.claudeState == "Thinking")
+    model.resumeSessions(for: .claude)
+    #expect(model.pausedSessions.isEmpty)
+    #expect(model.claudeState == "Thinking") // The unpaused session continues.
+    model.stopCore()
+    #expect(model.pausedSessions.isEmpty)
+}

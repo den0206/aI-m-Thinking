@@ -56,6 +56,11 @@ pub enum ClientCommand {
     Rescan {
         v: u8,
     },
+    SetSessionPaused {
+        v: u8,
+        session: u32,
+        paused: bool,
+    },
     Shutdown {
         v: u8,
     },
@@ -64,7 +69,10 @@ pub enum ClientCommand {
 impl ClientCommand {
     pub fn version(&self) -> u8 {
         match self {
-            Self::Configure { v, .. } | Self::Rescan { v } | Self::Shutdown { v } => *v,
+            Self::Configure { v, .. }
+            | Self::Rescan { v }
+            | Self::SetSessionPaused { v, .. }
+            | Self::Shutdown { v } => *v,
         }
     }
 }

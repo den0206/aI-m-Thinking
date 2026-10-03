@@ -14,6 +14,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Agents whose transcripts stop producing recognizable records (for example after a Claude Code / Codex update changes the format) are flagged as "Unsupported format" in the menu, and the diagnostic log records each session's agent CLI version.
 - Copy Diagnostic Log shares bounded, in-memory monitoring metadata without transcript content or file paths.
 - In Random mode the Sound Pack tile shows the pack currently playing.
+- Each agent tile has a stop button that pauses its active sessions until you resume them; other sessions keep playing.
 - A Hermes Precisa 305 typewriter sound pack recorded from a real machine, with its own space bar sound.
 - The menu links to the privacy policy.
 - Recorded keyboard sounds, random sound selection per turn, a speed slider, and an animated menu-bar keycap.

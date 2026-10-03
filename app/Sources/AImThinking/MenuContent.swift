@@ -78,11 +78,43 @@ struct MenuContent: View {
     }
 
     private func agentTile(_ service: AgentService, state: String) -> some View {
-        let active = state != "Waiting" && state != "Idle"
+        let paused = model.isPaused(service)
+        let active = state != "Waiting" && state != "Idle" && state != "Paused"
         let unrecognized = !active && model.unrecognizedAgents.contains(service)
         return VStack(alignment: .leading, spacing: 2) {
-            Text(service.displayName)
-                .font(.callout.weight(.semibold))
+            HStack(spacing: 4) {
+                Text(service.displayName)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Spacer(minLength: 0)
+                if paused {
+                    Button {
+                        model.resumeSessions(for: service)
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.caption2)
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Resume paused sessions")
+                    .accessibilityLabel("Resume paused \(service.displayName) sessions")
+                }
+                if active && model.coreStatus == .monitoring {
+                    Button {
+                        model.pauseSessions(for: service)
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .font(.caption2)
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Pause active sessions")
+                    .accessibilityLabel("Pause active \(service.displayName) sessions")
+                }
+            }
             if unrecognized {
                 Label("Unsupported format", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
@@ -102,7 +134,7 @@ struct MenuContent: View {
             in: RoundedRectangle(cornerRadius: 10)
         )
         .animation(.easeOut(duration: 0.2), value: active)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Folder access

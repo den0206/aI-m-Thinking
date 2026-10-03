@@ -89,6 +89,7 @@ Rules:
 
 - `configure`
 - `rescan`
+- `set_session_paused`: `{"v":1,"type":"set_session_paused","session":4,"paused":true}`. Pauses only the specified ephemeral session. Send `paused:false` to resume manually; only records beginning after the resume command contribute activity. Paused records are consumed silently, and other sessions remain monitored. Paused sessions are never evicted at the session cap, so they stay paused until resumed or their file is removed. Unknown/closed handles are ignored.
 - `shutdown`
 
 ## Core -> App messages

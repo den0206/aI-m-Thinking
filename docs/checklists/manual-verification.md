@@ -49,6 +49,10 @@
 - [ ] ClaudeとCodexを同時起動してもクラッシュしない
 - [ ] 複数sessionのうち強いactivityがsound schedulerへ反映される
 - [ ] session終了時にstateが解放される
+- [ ] agent tileの停止ボタンでそのagentの動作中sessionの音が止まり、tileがPausedになる
+- [ ] 一時停止中に進んだ分は、再開しても再生されない（再開後の新しいactivityだけで鳴る）
+- [ ] 一時停止中も他agent・一時停止後に始まったsessionは鳴り続け、停止ボタンで止められる
+- [ ] 同じagentに一時停止中・動作中のsessionが混在するとき、再開・停止ボタンが両方表示され、動作中のsessionを止めずに再開できる
 - [ ] 長時間利用してmemoryが継続増加しない
 
 ## F. Sleep / wake
