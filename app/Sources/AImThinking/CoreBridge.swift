@@ -10,13 +10,13 @@ enum CoreStatus: Equatable {
 
     var label: String {
         switch self {
-        case .unavailable: "Core unavailable"
-        case .starting: "Starting"
-        case .handshaking: "Connecting"
-        case .monitoring: "Monitoring"
-        case .stopped: "Stopped"
+        case .unavailable: String(localized: "Core unavailable")
+        case .starting: String(localized: "Starting")
+        case .handshaking: String(localized: "Connecting")
+        case .monitoring: String(localized: "Monitoring")
+        case .stopped: String(localized: "Stopped")
         case .failed(let code):
-            code == "CORE_RETRY_LIMIT" ? "Monitor failed — restart to retry" : "Error \(code)"
+            code == "CORE_RETRY_LIMIT" ? String(localized: "Monitor failed — restart to retry") : String(localized: "Error \(code)")
         }
     }
 }

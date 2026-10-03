@@ -96,6 +96,7 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 - [ ] bundle id = `com.den0206.AImThinking`
 - [ ] Rust Coreが `Contents/MacOS/im-thinking-core` に同梱される
 - [ ] `codesign --verify --strict` が成功する
+- [ ] macOSの言語を日本語にするとメニュー・初回ウィンドウ・フォルダ選択が日本語で表示され、英語では英語のまま表示される
 
 ## J. Notarized DMG
 

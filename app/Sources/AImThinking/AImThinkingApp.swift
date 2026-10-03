@@ -40,6 +40,6 @@ private struct KeycapLabel: View {
 
     var body: some View {
         Image(nsImage: KeycapIcon.image(frame: animator.frame, state: model.menuBarState))
-            .accessibilityValue(model.menuBarState?.rawValue.capitalized ?? "")
+            .accessibilityValue(model.menuBarState.map { String(localized: String.LocalizationValue($0.rawValue.capitalized)) } ?? "")
     }
 }

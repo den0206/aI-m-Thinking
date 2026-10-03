@@ -40,19 +40,19 @@ enum AgentService: String, CaseIterable {
             // Codex nests sessions as YYYY/MM/DD.
             if components.contains(".codex")
                 || children.contains(where: { $0.count == 4 && $0.allSatisfy(\.isNumber) }) {
-                return "This looks like the Codex folder. Choose ~/.claude/projects."
+                return String(localized: "This looks like the Codex folder. Choose ~/.claude/projects.")
             }
             // Core also watches the sibling `sessions` only for a root named `projects`.
             if url.lastPathComponent != "projects" {
-                return "Choose the projects folder inside ~/.claude."
+                return String(localized: "Choose the projects folder inside ~/.claude.")
             }
         case .codex:
             // Claude names each project folder after its path: "-Users-…".
             if components.contains(".claude") || children.contains(where: { $0.hasPrefix("-") }) {
-                return "This looks like a Claude Code folder. Choose ~/.codex/sessions."
+                return String(localized: "This looks like a Claude Code folder. Choose ~/.codex/sessions.")
             }
             if url.lastPathComponent != "sessions" {
-                return "Choose the sessions folder inside ~/.codex."
+                return String(localized: "Choose the sessions folder inside ~/.codex.")
             }
         }
         return nil
@@ -106,9 +106,9 @@ protocol AgentRootProviding: AnyObject {
 extension AgentRootProviding {
     func chooseRoot(for service: AgentService) -> FolderChoice {
         let panel = NSOpenPanel()
-        panel.title = "Select \(service.displayName) session folder"
-        panel.message = "aI'm Thinking only reads newly appended session data from this folder."
-        panel.prompt = "Use Folder"
+        panel.title = String(localized: "Select \(service.displayName) session folder")
+        panel.message = String(localized: "aI'm Thinking only reads newly appended session data from this folder.")
+        panel.prompt = String(localized: "Use Folder")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
@@ -151,7 +151,7 @@ final class DirectAgentRootProvider: AgentRootProviding {
     func saveRoot(_ url: URL, for service: AgentService) -> FolderChoice {
         if let problem = service.folderProblem(at: url) { return .rejected(problem) }
         guard (try? FileManager.default.contentsOfDirectory(atPath: url.path)) != nil else {
-            return .rejected("This folder cannot be read. Choose another folder or check its permissions.")
+            return .rejected(String(localized: "This folder cannot be read. Choose another folder or check its permissions."))
         }
         defaults.set(url.path, forKey: "agentRootPath.\(service.rawValue)")
         return .granted
@@ -207,7 +207,7 @@ final class SandboxAgentRootProvider: AgentRootProviding {
             releaseActiveURL(for: service)
             return .granted
         } catch {
-            return .rejected("Could not save access to this folder. Try again.")
+            return .rejected(String(localized: "Could not save access to this folder. Try again."))
         }
     }
 

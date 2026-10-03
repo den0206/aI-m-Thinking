@@ -141,18 +141,18 @@ final class AppModel: ObservableObject {
 
     var monitorStatusLabel: String {
         guard coreStatus == .monitoring else { return coreStatus.label }
-        if observerStatuses.values.contains("monitoring") { return "Monitoring" }
-        if observerStatuses.values.contains("error") { return "Limited monitoring" }
-        return observerStatuses.isEmpty ? "Checking folders" : "Check folders"
+        if observerStatuses.values.contains("monitoring") { return String(localized: "Monitoring") }
+        if observerStatuses.values.contains("error") { return String(localized: "Limited monitoring") }
+        return observerStatuses.isEmpty ? String(localized: "Checking folders") : String(localized: "Check folders")
     }
 
     func observerProblem(for service: AgentService) -> String? {
         switch observerStatuses[service] {
         // An agent the user never set up has no folder; that is not a problem.
-        case "directory_missing" where hasSavedFolder(for: service): "Folder missing"
-        case "access_required" where hasSavedFolder(for: service): "Choose a folder"
-        case "access_denied": "Folder access failed"
-        case "error": "Using file polling"
+        case "directory_missing" where hasSavedFolder(for: service): String(localized: "Folder missing")
+        case "access_required" where hasSavedFolder(for: service): String(localized: "Choose a folder")
+        case "access_denied": String(localized: "Folder access failed")
+        case "error": String(localized: "Using file polling")
         default: nil
         }
     }
@@ -286,7 +286,7 @@ final class AppModel: ObservableObject {
             try loginItemSetter(enabled)
             loginItemMessage = LoginItemManager.approvalMessage
         } catch {
-            loginItemMessage = "Could not change Start at Login: \(error.localizedDescription)"
+            loginItemMessage = String(localized: "Could not change Start at Login: \(error.localizedDescription)")
         }
         startAtLogin = LoginItemManager.isEnabled
     }
@@ -306,7 +306,7 @@ final class AppModel: ObservableObject {
         if requiresFolderAuthorization {
             for service in AgentService.allCases {
                 if !isFolderAuthorized(service), rootProvider.hasSavedRoot(service) {
-                    folderErrors[service] = "Folder access is no longer available. Choose the folder again."
+                    folderErrors[service] = String(localized: "Folder access is no longer available. Choose the folder again.")
                 } else {
                     folderErrors[service] = nil
                 }
@@ -324,7 +324,7 @@ final class AppModel: ObservableObject {
             } else if requiresFolderAuthorization,
                       ["access_required", "access_denied"].contains(status),
                       rootProvider.hasSavedRoot(service) {
-                folderErrors[service] = "Folder access is no longer available. Choose the folder again."
+                folderErrors[service] = String(localized: "Folder access is no longer available. Choose the folder again.")
             }
             if ["monitoring", "access_required", "access_denied", "directory_missing"].contains(status) {
                 if service == .claude { claudeFolderAuthorized = status == "monitoring" }

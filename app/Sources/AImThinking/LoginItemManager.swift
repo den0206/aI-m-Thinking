@@ -3,7 +3,7 @@ import ServiceManagement
 enum LoginItemManager {
     static var approvalMessage: String? {
         SMAppService.mainApp.status == .requiresApproval
-            ? "Allow aI'm Thinking in System Settings → General → Login Items." : nil
+            ? String(localized: "Allow aI'm Thinking in System Settings → General → Login Items.") : nil
     }
 
     static func openSettings() {

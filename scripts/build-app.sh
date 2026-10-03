@@ -75,6 +75,7 @@ chmod 755 "$MACOS/AImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
 cp "$ROOT/app/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+cp -R "$ROOT/app/Resources/ja.lproj" "$RESOURCES/ja.lproj"
 if [[ "$DISTRIBUTION" == "direct" ]]; then
   cp "$ROOT/LICENSE" "$RESOURCES/LICENSE"
   cp "$ROOT/README.md" "$RESOURCES/README.md"
@@ -87,6 +88,11 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ja</string>
+    </array>
     <key>CFBundleExecutable</key>
     <string>AImThinking</string>
     <key>CFBundleIdentifier</key>

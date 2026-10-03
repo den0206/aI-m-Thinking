@@ -1,0 +1,85 @@
+/* Menu */
+"Agents" = "エージェント";
+"Agent Folders" = "エージェントのフォルダ";
+"Agent Folder Access" = "エージェントのフォルダへのアクセス";
+"Allowed" = "許可済み";
+"Ready" = "準備完了";
+"Change…" = "変更…";
+"Choose Folder…" = "フォルダを選択…";
+"Revoke" = "取り消す";
+"Reset" = "リセット";
+"Sound" = "サウンド";
+"On" = "オン";
+"Off" = "オフ";
+"Muted" = "ミュート中";
+"Mute" = "ミュート";
+"Random" = "ランダム";
+"Sound Pack" = "サウンドパック";
+"Volume" = "音量";
+"Typing Speed" = "打鍵速度";
+"Start at Login" = "ログイン時に起動";
+"Restart Monitor" = "監視を再起動";
+"Copy Diagnostic Log" = "診断ログをコピー";
+"Privacy Policy" = "プライバシーポリシー";
+"Quit aI'm Thinking" = "aI'm Thinking を終了";
+"Resume paused sessions" = "一時停止中のセッションを再開";
+"Resume paused %@ sessions" = "一時停止中の %@ のセッションを再開";
+"Pause active sessions" = "動作中のセッションを一時停止";
+"Pause active %@ sessions" = "動作中の %@ のセッションを一時停止";
+"Unsupported format" = "未対応の形式";
+"This %@ version writes transcripts this app cannot read yet. Update aI'm Thinking or share the diagnostic log." = "この %@ のバージョンは、このアプリがまだ読めない形式で履歴を書き出しています。aI'm Thinking をアップデートするか、診断ログを共有してください。";
+"Check Agent Folders below, choose the folder again, or restart the monitor." = "下の「エージェントのフォルダ」を確認し、フォルダを選び直すか、監視を再起動してください。";
+
+/* Agent state */
+"Waiting" = "待機中";
+"Idle" = "待機中";
+"Thinking" = "思考中";
+"Writing" = "出力中";
+"Tool" = "ツール実行中";
+"Paused" = "一時停止中";
+
+/* Monitor status */
+"Monitoring" = "監視中";
+"Limited monitoring" = "一部のみ監視中";
+"Checking folders" = "フォルダを確認中";
+"Check folders" = "フォルダを確認してください";
+"Core unavailable" = "コアを起動できません";
+"Starting" = "起動中";
+"Connecting" = "接続中";
+"Stopped" = "停止中";
+"Monitor failed — restart to retry" = "監視に失敗しました。再起動してやり直してください";
+"Error %@" = "エラー %@";
+"Folder missing" = "フォルダが見つかりません";
+"Choose a folder" = "フォルダを選択してください";
+"Folder access failed" = "フォルダにアクセスできません";
+"Using file polling" = "ファイルを定期確認して監視中";
+
+/* Folder errors */
+"Folder access is no longer available. Choose the folder again." = "フォルダへのアクセス権が失われました。フォルダを選び直してください。";
+"This looks like the Codex folder. Choose ~/.claude/projects." = "これは Codex のフォルダのようです。~/.claude/projects を選んでください。";
+"Choose the projects folder inside ~/.claude." = "~/.claude の中にある projects フォルダを選んでください。";
+"This looks like a Claude Code folder. Choose ~/.codex/sessions." = "これは Claude Code のフォルダのようです。~/.codex/sessions を選んでください。";
+"Choose the sessions folder inside ~/.codex." = "~/.codex の中にある sessions フォルダを選んでください。";
+"This folder cannot be read. Choose another folder or check its permissions." = "このフォルダを読み込めません。別のフォルダを選ぶか、アクセス権を確認してください。";
+"Could not save access to this folder. Try again." = "このフォルダへのアクセス権を保存できませんでした。もう一度お試しください。";
+"Select %@ session folder" = "%@ のセッションフォルダを選択";
+"aI'm Thinking only reads newly appended session data from this folder." = "aI'm Thinking は、このフォルダに新しく追記されたセッションデータだけを読み込みます。";
+"Use Folder" = "このフォルダを使う";
+
+/* Login item */
+"Allow aI'm Thinking in System Settings → General → Login Items." = "システム設定 →「一般」→「ログイン項目」で aI'm Thinking を許可してください。";
+"Could not change Start at Login: %@" = "「ログイン時に起動」を変更できませんでした: %@";
+"Open Login Items Settings…" = "ログイン項目の設定を開く…";
+
+/* Onboarding */
+"Welcome to %@" = "%@ へようこそ";
+"aI'm Thinking is in your menu bar" = "aI'm Thinking はメニューバーにあります";
+"It plays keyboard sounds while Claude Code or Codex is working. Allow access to their session folders so it can tell when they are busy." = "Claude Code や Codex が作業している間、キーボードの打鍵音を鳴らします。作業中かどうかを知るために、それぞれのセッションフォルダへのアクセスを許可してください。";
+"It plays keyboard sounds while Claude Code or Codex is working. There is nothing to set up — just start an agent as usual." = "Claude Code や Codex が作業している間、キーボードの打鍵音を鳴らします。設定は不要です。いつもどおりエージェントを起動してください。";
+"The key icon in the menu bar opens sound, volume and typing speed settings." = "メニューバーのキーのアイコンから、サウンド、音量、打鍵速度を設定できます。";
+"Click the key for sound, volume and typing speed" = "キーをクリックすると、サウンド・音量・打鍵速度を設定できます";
+"Session folder access" = "セッションフォルダへのアクセス";
+"Read-only. Only lines written after launch are read, and nothing is saved." = "読み取り専用です。起動後に書き込まれた行だけを読み、何も保存しません。";
+"Sounds are ready whenever you open a terminal" = "ターミナルを開けば、いつでも音が鳴ります";
+"Choose a folder to continue" = "続けるにはフォルダを選んでください";
+"Done" = "完了";

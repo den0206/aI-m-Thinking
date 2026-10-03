@@ -33,7 +33,7 @@ struct MenuContent: View {
             }
 
             sliderModule(
-                title: "Volume",
+                title: String(localized: "Volume"),
                 systemImage: model.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 value: model.muted ? 0 : model.volume,
                 in: 0...1,
@@ -42,7 +42,7 @@ struct MenuContent: View {
             )
 
             sliderModule(
-                title: "Typing Speed",
+                title: String(localized: "Typing Speed"),
                 systemImage: "gauge.with.dots.needle.33percent",
                 value: model.typingSpeed,
                 in: AppModel.typingSpeedRange,
@@ -91,6 +91,7 @@ struct MenuContent: View {
         let problem = model.observerProblem(for: service)
         let active = ["Thinking", "Writing", "Tool"].contains(state)
         let unrecognized = !active && model.unrecognizedAgents.contains(service)
+        let localizedState = String(localized: String.LocalizationValue(state))
         return VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Text(service.displayName)
@@ -202,8 +203,8 @@ struct MenuContent: View {
             tileLabel(
                 systemImage: model.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 highlighted: !model.muted,
-                title: "Sound",
-                subtitle: model.muted ? "Muted" : "On"
+                title: String(localized: "Sound"),
+                subtitle: model.muted ? String(localized: "Muted") : String(localized: "On")
             )
         }
         .buttonStyle(.plain)
@@ -232,7 +233,7 @@ struct MenuContent: View {
                 systemImage: model.soundPack == nil ? "shuffle" : "keyboard",
                 highlighted: false,
                 title: model.playingPack.displayName,
-                subtitle: model.soundPack == nil ? "Random" : "Sound Pack"
+                subtitle: model.soundPack == nil ? String(localized: "Random") : String(localized: "Sound Pack")
             )
         }
         .menuStyle(.button)
