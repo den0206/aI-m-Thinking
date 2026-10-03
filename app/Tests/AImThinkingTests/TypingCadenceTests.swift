@@ -285,3 +285,13 @@ func stateKeycapsArePrintedTemplatesOfTheSameHeight() {
     }
     #expect(KeycapIcon.image(frame: 2, state: nil) === KeycapIcon.frames[2])
 }
+
+@Test @MainActor
+func sliderLabelsReadDefaultsAsFiftyPercentAndOneX() {
+    #expect(AppModel.volumeLabel(0) == "0%")
+    #expect(AppModel.volumeLabel(AppModel.defaultVolume) == "50%")
+    #expect(AppModel.volumeLabel(1) == "100%")
+    #expect(AppModel.typingSpeedLabel(AppModel.typingSpeedRange.lowerBound) == "×0.2")
+    #expect(AppModel.typingSpeedLabel(AppModel.defaultTypingSpeed) == "×1.0")
+    #expect(AppModel.typingSpeedLabel(AppModel.typingSpeedRange.upperBound) == "×2.0")
+}

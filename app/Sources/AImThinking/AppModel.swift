@@ -19,8 +19,18 @@ final class AppModel: ObservableObject {
     /// Typing speed multiplier; the slider's midpoint is the default.
     @Published private(set) var typingSpeed: Double
     static let typingSpeedRange = 0.3...2.1
+    static let defaultTypingSpeed = 1.2
     @Published private(set) var muted: Bool
     static let defaultVolume = 0.55
+
+    /// Slider labels read the default as 50% / ×1.0, scaled linearly on each side of it.
+    static func volumeLabel(_ value: Double) -> String {
+        "\(Int(value.pivoted(0...1, pivot: defaultVolume, to: 0...100, shownPivot: 50).rounded()))%"
+    }
+
+    static func typingSpeedLabel(_ value: Double) -> String {
+        String(format: "×%.1f", value.pivoted(typingSpeedRange, pivot: defaultTypingSpeed, to: 0.2...2.0, shownPivot: 1.0))
+    }
     @Published private(set) var startAtLogin: Bool
     @Published private(set) var loginItemMessage: String?
     @Published private(set) var observerStatuses: [AgentService: String] = [:]
@@ -51,7 +61,7 @@ final class AppModel: ObservableObject {
         let storedVolume = defaults.object(forKey: "volume") as? Double
         let initialVolume = max(0.0, min(1.0, storedVolume ?? Self.defaultVolume))
         let storedSpeed = defaults.object(forKey: "typingSpeed") as? Double
-        let initialSpeed = (storedSpeed ?? 1.2).clamped(to: Self.typingSpeedRange)
+        let initialSpeed = (storedSpeed ?? Self.defaultTypingSpeed).clamped(to: Self.typingSpeedRange)
         // A zero volume saved before mute followed the slider counts as muted.
         let initialMuted = defaults.bool(forKey: "muted") || initialVolume == 0
         let mode = distributionMode
@@ -455,5 +465,12 @@ private struct ActivityState {
 private extension Double {
     func clamped(to range: ClosedRange<Double>) -> Double {
         Swift.min(range.upperBound, Swift.max(range.lowerBound, self))
+    }
+
+    /// Maps `range` onto `shown` piecewise-linearly so that `pivot` lands on `shownPivot`.
+    func pivoted(_ range: ClosedRange<Double>, pivot: Double, to shown: ClosedRange<Double>, shownPivot: Double) -> Double {
+        self <= pivot
+            ? shown.lowerBound + (self - range.lowerBound) / (pivot - range.lowerBound) * (shownPivot - shown.lowerBound)
+            : shownPivot + (self - pivot) / (range.upperBound - pivot) * (shown.upperBound - shownPivot)
     }
 }

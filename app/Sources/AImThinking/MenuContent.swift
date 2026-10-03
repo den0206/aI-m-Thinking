@@ -37,6 +37,7 @@ struct MenuContent: View {
                 systemImage: model.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 value: model.muted ? 0 : model.volume,
                 in: 0...1,
+                label: AppModel.volumeLabel,
                 set: model.setVolume
             )
 
@@ -45,6 +46,7 @@ struct MenuContent: View {
                 systemImage: "gauge.with.dots.needle.33percent",
                 value: model.typingSpeed,
                 in: AppModel.typingSpeedRange,
+                label: AppModel.typingSpeedLabel,
                 set: model.setTypingSpeed
             )
 
@@ -279,15 +281,24 @@ struct MenuContent: View {
         systemImage: String,
         value: Double,
         in range: ClosedRange<Double>,
+        label: (Double) -> String,
         set: @escaping (Double) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                Text(label(value))
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
             ModuleSlider(
                 title: title,
                 systemImage: systemImage,
                 value: value,
+                valueLabel: label(value),
                 range: range,
                 set: set
             )
@@ -342,6 +353,7 @@ private struct ModuleSlider: View {
     let title: String
     let systemImage: String
     let value: Double
+    let valueLabel: String
     let range: ClosedRange<Double>
     let set: (Double) -> Void
 
@@ -377,7 +389,7 @@ private struct ModuleSlider: View {
         .frame(height: Self.height)
         .accessibilityElement()
         .accessibilityLabel(title)
-        .accessibilityValue("\(Int((fraction * 100).rounded())) percent")
+        .accessibilityValue(valueLabel)
         .accessibilityAdjustableAction { direction in
             let step = (range.upperBound - range.lowerBound) / 10
             switch direction {

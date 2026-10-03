@@ -10,6 +10,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 - Direct builds can select custom Claude Code / Codex session folders from Agent Folders and reset them to the defaults.
 - While muted, the menu-bar keycap reads "muted" and stops striking; while any session is paused it reads "paused".
+- Volume and Typing Speed show their value next to the title (0–100%, ×0.2–×2.0), with the defaults reading 50% and ×1.0.
 
 ### Fixed
 
