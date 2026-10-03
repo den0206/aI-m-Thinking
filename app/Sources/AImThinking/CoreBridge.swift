@@ -262,10 +262,13 @@ final class CoreBridge {
     }
 
     private static func coreExecutableURL() -> URL? {
+        #if DEBUG
+        // Release builds only run the signed, bundled core.
         if let override = ProcessInfo.processInfo.environment["IM_THINKING_CORE_PATH"],
            FileManager.default.isExecutableFile(atPath: override) {
             return URL(fileURLWithPath: override)
         }
+        #endif
 
         let bundled = Bundle.main.bundleURL
             .appendingPathComponent("Contents/MacOS/im-thinking-core")
