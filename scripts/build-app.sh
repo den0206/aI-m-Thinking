@@ -167,11 +167,8 @@ if [[ "$CONFIG" == "appstore" ]]; then
   PKG="$OUT_DIR/aIm-Thinking-$MARKETING_VERSION-$BUILD_NUMBER.pkg"
   productbuild --component "$APP" /Applications --sign "$INSTALLER_IDENTITY" "$PKG"
   echo "$PKG"
-  if [[ -n "${ASC_KEY_ID:-}" ]]; then
-    # CI: App Store Connect API key. altool reads AuthKey_<id>.p8 from API_PRIVATE_KEYS_DIR.
-    API_PRIVATE_KEYS_DIR="$(dirname "$ASC_KEY_P8")" \
-      xcrun altool --upload-package "$PKG" --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID" --wait
-  elif [[ -n "${APPLE_ID:-}" ]]; then
+  # CI uploads in its own step (release.yml) so the upload gets its own timeout.
+  if [[ -n "${APPLE_ID:-}" ]]; then
     # Local: app-specific password stored once with: security add-generic-password -l AC_PASSWORD -s AC_PASSWORD -a <apple-id> -w
     ALTOOL_PASSWORD="$(security find-generic-password -l "${KEYCHAIN_ITEM:-AC_PASSWORD}" -a "$APPLE_ID" -w)" \
       xcrun altool --upload-package "$PKG" -u "$APPLE_ID" -p @env:ALTOOL_PASSWORD --wait
