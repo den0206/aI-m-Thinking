@@ -8,8 +8,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Added
 
-- Optional Ambient Accents mode (off by default) with rare activity-aware rain, distant thunder, page-turn, and writing sounds.
-- Debug-only Ambient tuning controls for gain, reverb, interval scaling, and one-shot previews.
+- Optional Ambient Accents mode (off by default) with rare activity-aware rain, distant thunder, and page-turn sounds.
+- Debug-only Ambient tuning controls for gain and one-shot previews.
 
 ### Changed
 

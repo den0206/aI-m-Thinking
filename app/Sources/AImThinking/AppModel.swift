@@ -29,8 +29,6 @@ final class AppModel: ObservableObject {
 
     #if DEBUG
     @Published private(set) var ambientDebugGain = AmbientAudioEngine.defaultGain
-    @Published private(set) var ambientDebugReverb = Double(AmbientAudioEngine.defaultReverb)
-    @Published private(set) var ambientDebugIntervalScale = 1.0
     #endif
 
     /// Slider labels read the default as 50% / ×1.0, scaled linearly on each side of it.
@@ -315,16 +313,6 @@ final class AppModel: ObservableObject {
         ambientScheduler.setDebugGain(ambientDebugGain)
     }
 
-    func setAmbientDebugReverb(_ value: Double) {
-        ambientDebugReverb = value.clamped(to: 0...30)
-        ambientScheduler.setDebugReverb(ambientDebugReverb)
-    }
-
-    func setAmbientDebugIntervalScale(_ value: Double) {
-        ambientDebugIntervalScale = value.clamped(to: 0.01...1.0)
-        ambientScheduler.intervalScale = ambientDebugIntervalScale
-    }
-
     func previewAmbient(_ kind: AmbientAccentKind) {
         ambientScheduler.preview(kind)
     }
@@ -467,10 +455,14 @@ final class AppModel: ObservableObject {
     private func updateGlobalAudio() {
         let monitored = activities.filter { !pausedSessions.contains($0.key) }.map(\.value)
         let busy = monitored.filter { $0.phase != "idle" && $0.intensity >= 0.06 }
+        // The accent clock counts only audible activity, so permission prompts and
+        // silent tool runs never play one; the open turn keeps a playing accent alive.
         let ambientActivity = busy.max(by: { $0.intensity < $1.intensity })
+            ?? monitored.filter { $0.phase != "idle" }.max(by: { $0.intensity < $1.intensity })
         ambientScheduler.update(
             phase: ambientActivity?.phase,
-            toolClass: ambientActivity?.toolClass
+            toolClass: ambientActivity?.toolClass,
+            audible: !busy.isEmpty
         )
         // A still keycap printed "muted" reads as silenced.
         keyPress.update(active: !muted && !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)

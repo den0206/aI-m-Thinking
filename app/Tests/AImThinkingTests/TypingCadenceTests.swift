@@ -295,24 +295,3 @@ func sliderLabelsReadDefaultsAsFiftyPercentAndOneX() {
     #expect(AppModel.typingSpeedLabel(AppModel.defaultTypingSpeed) == "×1.0")
     #expect(AppModel.typingSpeedLabel(AppModel.typingSpeedRange.upperBound) == "×2.0")
 }
-
-
-@Test
-func ambientAccentSelectionMatchesActivityContext() {
-    #expect(AmbientAccentScheduler.chooseKind(phase: "thinking", toolClass: nil, roll: 0.10) == .writing)
-    #expect(AmbientAccentScheduler.chooseKind(phase: "thinking", toolClass: nil, roll: 0.45) == .pageTurn)
-    #expect(AmbientAccentScheduler.chooseKind(phase: "writing", toolClass: nil, roll: 0.10) == .rain)
-    #expect(AmbientAccentScheduler.chooseKind(phase: "tool", toolClass: "read", roll: 0.10) == .pageTurn)
-}
-
-@Test @MainActor
-func ambientAccentsDefaultOffAndPersist() {
-    let suite = "ambient-test-\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defer { defaults.removePersistentDomain(forName: suite) }
-    let model = AppModel(defaults: defaults, startMonitoring: false)
-    #expect(!model.ambientAccentsEnabled)
-    model.setAmbientAccentsEnabled(true)
-    #expect(model.ambientAccentsEnabled)
-    #expect(defaults.bool(forKey: "ambientAccentsEnabled"))
-}

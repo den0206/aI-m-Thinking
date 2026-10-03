@@ -50,7 +50,7 @@ jobs:
           test -f "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
           plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
           ls "$APP/Contents/Resources/Sounds/kc1000/"*.wav >/dev/null
-          for asset in rain.mp3 thunder.ogg page-turn.mp3 writing.mp3; do
+          for asset in rain.m4a thunder.m4a page-turn.m4a; do
             test -s "$APP/Contents/Resources/Ambient/$asset"
           done
           codesign --display --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o "$RUNNER_TEMP/app-entitlements.plist" -

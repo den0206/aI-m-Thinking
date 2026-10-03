@@ -2,47 +2,36 @@
 
 All Ambient Accents recordings are CC0 1.0. They are bundled locally and never fetched at runtime.
 
-## Rain — `rain.mp3`
+## Rain — `rain.m4a`
 
-- Recording: **Light rain on window**, Freesound #648529
+- Recording: **RAIN on glass window.wav**, Freesound #648529
 - Author: **nicoproson**
 - Source: https://freesound.org/s/648529/
 - License: CC0 1.0
-- Bundled derivative source: `xinchenok/izumi-sagiri-room`
-- Processing in that project: 44–68 s excerpt, high-pass 70 Hz, EBU R128 -23 LUFS, short fades, 48 kHz stereo MP3.
-- aI'm Thinking plays at most 9 seconds from the recording and adds runtime fade/reverb.
+- Processing: Freesound HQ preview, 44–68 s excerpt, 70 Hz one-pole high-pass, level matched to about -23 LUFS, 80 ms fade-in and 300 ms fade-out, AAC 160 kbps.
+- aI'm Thinking plays at most 5 seconds from the recording and adds runtime fades.
 
-## Distant thunder — `thunder.ogg`
+## Distant thunder — `thunder.m4a`
 
 - Recording: **Distant Thunder 3**, Freesound #581124
 - Author: **Fission9**
 - Source: https://freesound.org/people/Fission9/sounds/581124/
 - License: CC0 1.0
-- Bundled derivative source: `13rac1/StillFlow` (`thunder-distant-boom.ogg`)
-- The source project applies a level boost. aI'm Thinking limits playback to 8 seconds and adds runtime fade/reverb.
+- Processing: Freesound HQ preview (whole recording), about +9.3 dB without clipping, 80 ms fade-in and 300 ms fade-out, AAC 160 kbps.
+- aI'm Thinking plays the whole recording (about 8.2 seconds) and adds runtime fades.
 
-## Page turn — `page-turn.mp3`
+## Page turn — `page-turn.m4a`
 
-- Recording: **Page Turn**, Freesound #860360
-- Author: **sokworks**
-- Source: https://freesound.org/people/sokworks/sounds/860360/
+- Recording: **Page Turn**, Freesound #656546
+- Author: **IENBA**
+- Source: https://freesound.org/people/IENBA/sounds/656546/
 - License: CC0 1.0
-- Bundled derivative source: `irreal/get-ready-for-school`
-- That project extracts the action, removes pauses, adjusts level, and adds short edge fades.
-
-## Writing — `writing.mp3`
-
-- Recording: **Pencil writing on paper (1 stroke, Take B)**, Freesound #632472
-- Author: **ani_music**
-- Source: https://freesound.org/people/ani_music/sounds/632472/
-- License: CC0 1.0
-- Bundled derivative source: `irreal/get-ready-for-school`
-- That project extracts the action, removes pauses, adjusts level, and adds short edge fades.
+- Processing: Freesound HQ preview, first 2.1 s (two page movements), +8 dB with peak limiting, short fade-out, AAC 128 kbps.
 
 ## Runtime behavior
 
-Ambient Accents are off by default. When enabled, they can play only while an observed agent is actively Thinking, Writing, or using a Tool. The interval is randomized between roughly 5 and 15 minutes of continuous activity. Individual sound categories are selected internally according to the current agent state; users do not choose categories.
+Ambient Accents are off by default. When enabled, they can play only while an observed agent is in a Thinking, Writing, or Tool turn. An accent plays after a random 3–8 minutes of accumulated audible agent activity; the count pauses while agents are silent (including permission prompts and quiet tool runs), between turns, and during system sleep, and the same sound never plays twice in a row. Individual sound categories are selected internally according to the current agent state; users do not choose categories.
 
-The Ambient bus follows the existing master Volume and Mute controls. Internal per-sound level, fade timing, and light room reverb keep the one-shots from sounding abrupt.
+The Ambient bus follows the existing master Volume and Mute controls. Internal per-sound level and fade timing keep the one-shots from sounding abrupt.
 
-Debug builds expose temporary tuning controls for gain, reverb, interval scale, and one-shot preview. Release builds do not expose those controls.
+Debug builds expose temporary tuning controls for gain and one-shot preview. Release builds do not expose those controls.

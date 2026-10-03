@@ -45,6 +45,9 @@
 - [ ] 長時間idleでAVAudioEngineが不要に動き続けない
 - [ ] Agentが待機中の試聴は、最後の音が終わるとAVAudioEngineも停止する
 - [ ] 試聴中にAgentの活動が始まっても、試聴の終了処理で活動音が止まらない
+- [ ] Ambient Accentsはオフが既定で、オンにすると、Agentの音が出ている時間の合計3〜8分ごとに鳴る（短いturnが続いても鳴る。許可待ちなど無音の間とスリープ中は数えず、復帰時に溜まった分をまとめて鳴らさない）
+- [ ] 雨・遠雷は短く鳴り、ページ音は2回めくる音として最後まで途切れず鳴る
+- [ ] Ambient Accentsの音が終わるとAVAudioEngineも停止し、Mute・オフ・turn終了で止まる
 
 ## E. Multiple sessions
 

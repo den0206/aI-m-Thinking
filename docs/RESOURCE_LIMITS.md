@@ -41,6 +41,7 @@ Overflow must drop non-critical observer/audio work rather than backpressure Cla
 - The speed multiplier is included before the 30 keys/s cap, and jitter never shortens a playback interval below 1/30 second.
 - A reused voice drops its previous buffer; playback does not accumulate an audio backlog. Pack changes retain decoded PCM for at most the current and previous packs.
 - After the final preview strike, the engine stops once the longest preview buffer's duration plus 50 ms has elapsed, unless the activity scheduler is running. Mute, stop, and a new preview cancel the pending preview task.
+- Ambient Accents use one separate AVAudioEngine with a single player node and at most one accent at a time. The timer counts only audible activity (non-IDLE at or above the intensity threshold) and fires after a random 3–8 minutes of it. It pauses (keeping the remaining time, measured on the suspending clock) during silent gaps such as permission prompts, when every session is IDLE or paused, when the mode is turned off, and on Mute; monitor stop cancels it. The scheduler holds only a few scalars and one task, and persists nothing. A playing accent fades out only when the turn ends, not on short silent gaps. The engine stops after each accent finishes.
 - Zero-intensity or IDLE sessions do not keep the keycap animation running. Mute silences audio and stops the animation; monitor stop/failure clears both.
 
 ## Startup
