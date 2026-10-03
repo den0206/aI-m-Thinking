@@ -3,3 +3,5 @@ core/target/
 app/.build/
 dist/
 /.build/
+
+.secret
