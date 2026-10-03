@@ -5,127 +5,109 @@ struct MenuContent: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: coreIcon)
-                Text(model.coreStatus.label)
-                    .font(.headline)
-            }
-
-            Divider()
-
-            agentRow(name: "Claude Code", state: model.claudeState)
-            agentRow(name: "Codex", state: model.codexState)
-
-            if model.requiresFolderAuthorization {
-                Divider()
-
-                Text("Agent Folder Access")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                folderAccessRow(
-                    service: .claude,
-                    authorized: model.claudeFolderAuthorized
-                )
-                folderAccessRow(
-                    service: .codex,
-                    authorized: model.codexFolderAuthorized
-                )
-            }
-
-            Divider()
-
-            Picker(
-                "Sound",
-                selection: Binding(
-                    get: { model.soundPack },
-                    set: { model.selectSoundPack($0) }
-                )
-            ) {
-                Text("Random").tag(SoundPackID?.none)
-                ForEach(SoundPackID.allCases) { pack in
-                    Text(pack.displayName).tag(Optional(pack))
-                }
-            }
-
-            HStack {
-                Text("Speed")
-                Slider(
-                    value: Binding(
-                        get: { model.typingSpeed },
-                        set: { model.setTypingSpeed($0) }
-                    ),
-                    in: AppModel.typingSpeedRange
-                )
-            }
-
-            HStack {
-                Text("Volume")
-                Slider(
-                    value: Binding(
-                        get: { model.volume },
-                        set: { model.setVolume($0) }
-                    ),
-                    in: 0...1
-                )
-            }
-
-            Toggle(
-                "Mute",
-                isOn: Binding(
-                    get: { model.muted },
-                    set: { model.setMuted($0) }
-                )
-            )
-
-            Toggle(
-                "Start at Login",
-                isOn: Binding(
-                    get: { model.startAtLogin },
-                    set: { model.setStartAtLogin($0) }
-                )
-            )
-
-            Divider()
-
-            HStack {
-                Button("Restart Monitor") {
-                    model.restartCore()
-                }
-
-                Spacer()
-
-                Button("Quit") {
-                    model.stopCore()
-                    NSApplication.shared.terminate(nil)
-                }
-            }
+        GlassEffectContainer(spacing: 10) {
+            content
         }
-        .padding(14)
+        .padding(12)
         .frame(width: 320)
     }
 
-    private var coreIcon: String {
-        switch model.coreStatus {
-        case .monitoring:
-            "checkmark.circle"
-        case .failed:
-            "exclamationmark.triangle"
-        case .unavailable:
-            "questionmark.circle"
-        default:
-            "circle"
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            agentsModule
+
+            if model.requiresFolderAuthorization {
+                folderAccessModule
+            }
+
+            HStack(spacing: 10) {
+                muteTile
+                soundPackTile
+            }
+
+            sliderModule(
+                title: "Volume",
+                systemImage: "speaker.wave.2.fill",
+                value: model.volume,
+                in: 0...1,
+                set: model.setVolume
+            )
+
+            sliderModule(
+                title: "Typing Speed",
+                systemImage: "gauge.with.dots.needle.33percent",
+                value: model.typingSpeed,
+                in: AppModel.typingSpeedRange,
+                set: model.setTypingSpeed
+            )
+
+            footer
         }
     }
 
-    private func agentRow(name: String, state: String) -> some View {
-        HStack {
-            Text(name)
-            Spacer()
-            Text(state)
-                .foregroundStyle(.secondary)
+    // MARK: - Agents
+
+    private var agentsModule: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Agents")
+                    .font(.headline)
+                Spacer()
+                Circle()
+                    .fill(coreStatusColor)
+                    .frame(width: 6, height: 6)
+                Text(model.coreStatus.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                agentTile(.claude, state: model.claudeState)
+                agentTile(.codex, state: model.codexState)
+            }
         }
+        .module()
+    }
+
+    private var coreStatusColor: Color {
+        switch model.coreStatus {
+        case .monitoring: .green
+        case .failed, .unavailable: .orange
+        default: .secondary
+        }
+    }
+
+    private func agentTile(_ service: AgentService, state: String) -> some View {
+        let active = state != "Waiting" && state != "Idle"
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(service.displayName)
+                .font(.callout.weight(.semibold))
+            Text(active ? "\(state)…" : state)
+                .font(.caption)
+                .foregroundStyle(active ? AnyShapeStyle(.white.opacity(0.9)) : AnyShapeStyle(.secondary))
+        }
+        .foregroundStyle(active ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            active ? AnyShapeStyle(service.tint) : AnyShapeStyle(.primary.opacity(0.08)),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
+        .animation(.easeOut(duration: 0.2), value: active)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Folder access
+
+    private var folderAccessModule: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Agent Folder Access")
+                .font(.headline)
+
+            folderAccessRow(service: .claude, authorized: model.claudeFolderAuthorized)
+            folderAccessRow(service: .codex, authorized: model.codexFolderAuthorized)
+        }
+        .module()
     }
 
     private func folderAccessRow(service: AgentService, authorized: Bool) -> some View {
@@ -145,6 +127,208 @@ struct MenuContent: View {
                     model.authorizeFolder(for: service)
                 }
             }
+        }
+    }
+
+    // MARK: - Sound tiles
+
+    private var muteTile: some View {
+        Button {
+            model.setMuted(!model.muted)
+        } label: {
+            tileLabel(
+                systemImage: model.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                highlighted: !model.muted,
+                title: "Sound",
+                subtitle: model.muted ? "Muted" : "On"
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Mute")
+        .accessibilityValue(model.muted ? "On" : "Off")
+    }
+
+    private var soundPackTile: some View {
+        Menu {
+            Picker(
+                "Sound Pack",
+                selection: Binding(
+                    get: { model.soundPack },
+                    set: { model.selectSoundPack($0) }
+                )
+            ) {
+                Text("Random").tag(SoundPackID?.none)
+                Divider()
+                ForEach(SoundPackID.allCases) { pack in
+                    Text(pack.displayName).tag(Optional(pack))
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            tileLabel(
+                systemImage: model.soundPack == nil ? "shuffle" : "keyboard",
+                highlighted: false,
+                title: model.soundPack?.displayName ?? "Random",
+                subtitle: "Sound Pack"
+            )
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+    }
+
+    private func tileLabel(
+        systemImage: String,
+        highlighted: Bool,
+        title: String,
+        subtitle: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(highlighted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                .frame(width: 30, height: 30)
+                .background(
+                    highlighted ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary.opacity(0.1)),
+                    in: Circle()
+                )
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+    }
+
+    // MARK: - Sliders
+
+    private func sliderModule(
+        title: String,
+        systemImage: String,
+        value: Double,
+        in range: ClosedRange<Double>,
+        set: @escaping (Double) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            ModuleSlider(
+                title: title,
+                systemImage: systemImage,
+                value: value,
+                range: range,
+                set: set
+            )
+        }
+        .module()
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(
+                "Start at Login",
+                isOn: Binding(
+                    get: { model.startAtLogin },
+                    set: { model.setStartAtLogin($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+
+            Button("Restart Monitor") {
+                model.restartCore()
+            }
+            .buttonStyle(.plain)
+
+            Button("Quit aI'm Thinking") {
+                model.stopCore()
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("q")
+        }
+        .module()
+    }
+}
+
+/// Control Center style thick slider: an accent-color fill grows from the leading edge.
+private struct ModuleSlider: View {
+    let title: String
+    let systemImage: String
+    let value: Double
+    let range: ClosedRange<Double>
+    let set: (Double) -> Void
+
+    private static let height: CGFloat = 28
+
+    private var fraction: Double {
+        (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.primary.opacity(0.12))
+                Capsule()
+                    .fill(.tint.opacity(0.75))
+                    .frame(width: max(Self.height, geometry.size.width * fraction))
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: Self.height)
+            }
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0).onChanged { drag in
+                    let f = min(max(drag.location.x / geometry.size.width, 0), 1)
+                    set(range.lowerBound + f * (range.upperBound - range.lowerBound))
+                }
+            )
+        }
+        .frame(height: Self.height)
+        .accessibilityElement()
+        .accessibilityLabel(title)
+        .accessibilityValue("\(Int((fraction * 100).rounded())) percent")
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) / 10
+            switch direction {
+            case .increment: set(min(value + step, range.upperBound))
+            case .decrement: set(max(value - step, range.lowerBound))
+            @unknown default: break
+            }
+        }
+    }
+}
+
+private extension View {
+    func module() -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular, in: .rect(cornerRadius: 14))
+    }
+}
+
+private extension AgentService {
+    /// Brand tints from den0206/account-switcher (#d97757 / #10a37f),
+    /// darkened so the white tile text keeps 4.5:1 contrast.
+    var tint: Color {
+        switch self {
+        case .claude: Color(red: 0xB8 / 255, green: 0x5A / 255, blue: 0x3B / 255)
+        case .codex: Color(red: 0x0B / 255, green: 0x7D / 255, blue: 0x61 / 255)
         }
     }
 }
