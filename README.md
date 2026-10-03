@@ -35,7 +35,7 @@ The Swift toolchain is pinned to `6.4.0` by `.swift-version` at the repository r
 
 ## Install
 
-Download the latest `Im-Thinking-X.Y.Z.dmg` from GitHub Releases and move `aI'm Thinking.app` to `/Applications`.
+Download the latest `aIm-Thinking-X.Y.Z.dmg` from GitHub Releases and move `aI'm Thinking.app` to `/Applications`.
 
 Builds are distributed from **this repository's own GitHub Releases**; there is no separate release repository.
 
@@ -88,7 +88,7 @@ The debug build is kept separate from the release build.
 | | Release | Debug |
 |---|---|---|
 | App name | aI'm Thinking | aI'm Thinking Debug |
-| Bundle ID | `com.den0206.ImThinking` | `com.den0206.ImThinking.debug` |
+| Bundle ID | `com.den0206.AImThinking` | `com.den0206.AImThinking.debug` |
 | Build | release | debug |
 
 To debug the App Store build (sandbox and folder access), select **Run aI'm Thinking App Store Debug.app** and press F5.
