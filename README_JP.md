@@ -190,3 +190,29 @@ docs/                   Design / development / release documents
 ## Status
 
 実装進捗と未完了の実機確認項目は [docs/PROGRESS.md](docs/PROGRESS.md) に記録しています。
+
+## ライセンス
+
+Copyright (c) 2026 Yuuki Sakai.
+
+このリポジトリの独自コードには GNU General Public License バージョン3のみ
+（`GPL-3.0-only`）を適用します。全文は [LICENSE](LICENSE) を参照してください。
+
+- 商用利用は可能です。
+- 自分だけで使う改変には、ソース公開の義務はありません。
+- 元のソフトウェアや改変版を配布する場合は、対象となるコードにGPL-3.0を適用し、
+  受領者に対応するソースコードを提供するなど、GPL-3.0の条件を守る必要があります。
+  ビルド・インストールに必要なスクリプトも対象です。改変版を配布する際に、
+  改変前の公式リポジトリへのリンクだけを示しても、この条件は満たしません。
+
+公式GitHub Releaseに対応するソースは、
+[このリポジトリ](https://github.com/den0206/aI-m-Thinking) の `vX.Y.Z` タグから取得できます。
+ビルド手順は [Development Guide](docs/DEVELOPMENT.md) を参照してください。
+
+公式Mac App Store版のバイナリは、著作権者が別途、App Storeで提示する利用条件で配布します。
+これによって、このリポジトリのソースに適用するGPL-3.0は変わりません。
+第三者の再配布に対するGPL-3.0の例外を認めるものでもありません。
+
+外部の依存ライブラリや素材には、それぞれのライセンスを適用します。
+録音音源のCC0は維持します。詳細は
+[Sound credits](app/Resources/Sounds/CREDITS.md) を参照してください。

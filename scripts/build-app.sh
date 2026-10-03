@@ -75,6 +75,10 @@ chmod 755 "$MACOS/AImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
 cp "$ROOT/app/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+if [[ "$DISTRIBUTION" == "direct" ]]; then
+  cp "$ROOT/LICENSE" "$RESOURCES/LICENSE"
+  cp "$ROOT/README.md" "$RESOURCES/README.md"
+fi
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

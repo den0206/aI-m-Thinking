@@ -190,3 +190,31 @@ docs/                   Design / development / release documents
 ## Status
 
 Implementation progress and pending on-device checks are tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
+
+## License
+
+Copyright (c) 2026 Yuuki Sakai.
+
+Original code in this repository is licensed under the GNU General Public License
+version 3 only (`GPL-3.0-only`). See [LICENSE](LICENSE) for the full terms.
+
+- Commercial use is allowed.
+- Private modifications do not require publication.
+- If you distribute this software or a modified version, you must comply with
+  GPL-3.0, including licensing the covered work under GPL-3.0 and providing its
+  corresponding source code to recipients. That includes the scripts needed to
+  build and install it; a link to the unmodified upstream source does not cover
+  your own changes.
+
+Source for official GitHub releases is available from the matching `vX.Y.Z` tag
+in [this repository](https://github.com/den0206/aI-m-Thinking). Build instructions
+are in [Development Guide](docs/DEVELOPMENT.md).
+
+Official Mac App Store binaries are separately licensed by the copyright holder
+under the terms presented in the App Store. This does not change the GPL-3.0
+license of the source in this repository or grant third parties an exception
+from GPL-3.0.
+
+Third-party dependencies and assets retain their own licenses. In particular,
+the recorded sound samples remain CC0; see
+[Sound credits](app/Resources/Sounds/CREDITS.md).
