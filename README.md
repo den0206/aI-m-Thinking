@@ -12,6 +12,10 @@
 
 A macOS menu bar app that detects Claude Code / Codex activity and plays keyboard sounds that follow how hard the agent is thinking, generating, and editing.
 
+<p align="center">
+  <img src="media/demo-paper.gif" width="720" alt="Demo: the menu-bar key and keyboard sound follow Claude Code's thinking, writing, tool, and idle phases">
+</p>
+
 Start your agents the usual way:
 
 ```bash

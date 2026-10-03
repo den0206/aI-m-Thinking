@@ -12,6 +12,10 @@
 
 Claude Code / Codex の活動を検知し、思考・生成・編集の強さに合わせてキーボード音を鳴らす macOS メニューバーアプリです。
 
+<p align="center">
+  <img src="media/demo-paper.gif" width="720" alt="デモ: Claude Code の思考・生成・ツール実行・待機に合わせてメニューバーのキーとキーボード音が変化する様子">
+</p>
+
 通常どおり次のコマンドで Agent を起動できます。
 
 ```bash
