@@ -149,9 +149,21 @@ I’m Thinking Debugを起動した状態で、別Terminalから通常どおり 
 
 ## 8. Important development rules
 
+### Review / commit commands
+
+[account-switcher](https://github.com/den0206/account-switcher)と同じく、共通手順を `.agents/skills/` に置き、Claudeのコマンドからも読み込みます。
+
+| 用途 | Claude Code | Codex |
+|---|---|---|
+| マージ前レビュー | `/review-for-merge` | `$review-for-merge` |
+| レビュー後に機能ごとにコミット | `/commit-by-feature` | `$commit-by-feature` |
+
+後ろに比較元や対象を指定できます（例: `/review-for-merge main`、`$commit-by-feature 開発用コマンドのみ`）。レビューだけでは編集・コミットせず、コミット手順もpushは行いません。表示されない場合は新しいセッションを開始してください。
+Codexの配置・呼び出し形式は[公式スキル仕様](https://learn.chatgpt.com/docs/build-skills)に準拠しています。
+
 ### Do not modify agent configuration
 
-開発やデバッグのために次を変更しません。
+アプリの動作や、その動作確認のために次を変更しません。ユーザーが依頼した開発用コマンド・スキルの整備は対象外です。
 
 ```text
 ~/.claude/settings.json
