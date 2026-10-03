@@ -33,6 +33,33 @@ final class CoreBridge {
     private var intentionalStop = false
     private var generation = 0
     private var restartTask: Task<Void, Never>?
+    private var diagnosticLines: [String] = []
+    private var diagnosticBuffer = Data()
+    private var lastActivity: [UInt32: String] = [:]
+
+    var diagnosticLog: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        return "aI'm Thinking \(version)\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nRecent diagnostics (up to 4000 entries; session content and paths excluded)\n"
+            + "Current sessions:\n" + lastActivity.sorted { $0.key < $1.key }.map(\.value).joined(separator: "\n") + "\nEvents:\n"
+            + diagnosticLines.joined(separator: "\n")
+    }
+
+    private func log(_ line: String) {
+        diagnosticLines.append("\(Date().ISO8601Format()) \(line)")
+        if diagnosticLines.count > 4000 {
+            diagnosticLines.removeFirst(diagnosticLines.count - 4000)
+        }
+    }
+
+    private func consumeDiagnostics(_ data: Data) {
+        diagnosticBuffer.append(data)
+        while let newline = diagnosticBuffer.firstIndex(of: 0x0A) {
+            let line = String(decoding: diagnosticBuffer[..<newline], as: UTF8.self)
+            diagnosticBuffer.removeSubrange(...newline)
+            if line.hasPrefix("IM_DIAGNOSTIC ") { log(line) }
+        }
+        if diagnosticBuffer.count > 64 * 1024 { diagnosticBuffer.removeAll() }
+    }
 
     init(rootProvider: any AgentRootProviding = DirectAgentRootProvider(), executableURL: URL? = nil) {
         self.rootProvider = rootProvider
@@ -43,6 +70,9 @@ final class CoreBridge {
         guard process == nil else { return }
         generation &+= 1
         let generation = generation
+        log("monitor start")
+        lastActivity.removeAll()
+        diagnosticBuffer.removeAll()
         outputBuffer.removeAll()
         guard let executable = executableURL ?? Self.coreExecutableURL() else {
             onStatus?(.unavailable)
@@ -62,6 +92,18 @@ final class CoreBridge {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                return
+            }
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == generation else { return }
+                self.consumeDiagnostics(data)
+            }
+        }
+
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             if data.isEmpty {
@@ -75,9 +117,11 @@ final class CoreBridge {
             }
         }
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminated in
+            let exitCode = terminated.terminationStatus
             Task { @MainActor [weak self] in
                 guard let self, self.generation == generation else { return }
+                self.log("monitor exit code=\(exitCode)")
                 self.process = nil
                 self.input = nil
                 self.outputBuffer.removeAll(keepingCapacity: false)
@@ -94,6 +138,8 @@ final class CoreBridge {
             onStatus?(.handshaking)
         } catch {
             stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            log("monitor launch failed")
             onStatus?(.failed("CORE_LAUNCH"))
         }
     }
@@ -116,6 +162,7 @@ final class CoreBridge {
         restartTask?.cancel()
         restartTask = nil
         generation &+= 1
+        log("monitor stop force=\(force)")
         intentionalStop = true
         send(["v": 1, "type": "shutdown"])
 
@@ -145,6 +192,7 @@ final class CoreBridge {
                   line.count <= 32 * 1024,
                   let message = try? JSONDecoder().decode(CoreMessage.self, from: Data(line))
             else {
+                log("IPC decode failed")
                 continue
             }
 
@@ -153,6 +201,16 @@ final class CoreBridge {
     }
 
     private func handle(_ message: CoreMessage) {
+        let summary = "type=\(message.type) session=\(message.session.map(String.init) ?? "-") agent=\(message.agent ?? "-") phase=\(message.phase ?? "-") active=\((message.intensity ?? 0) >= 0.06) status=\(message.status ?? "-") code=\(message.code ?? "-")"
+        if message.type == "activity", let session = message.session {
+            if lastActivity[session] != summary { log(summary) }
+            lastActivity[session] = summary
+        } else {
+            log(summary)
+            if message.type == "session_closed", let session = message.session {
+                lastActivity.removeValue(forKey: session)
+            }
+        }
         guard message.version == 1 else {
             onStatus?(.failed("IPC1001"))
             return

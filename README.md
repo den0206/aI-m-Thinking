@@ -91,6 +91,8 @@ To debug the Rust core on its own, select **Run Rust Core** and press F5.
 
 Details: [Development Guide](docs/DEVELOPMENT.md)
 
+For bug reports, reproduce the issue and click **Copy Diagnostic Log** in the app menu. Share the copied text. The log keeps the latest 4,000 entries in memory, including session state, turn-end events, and read errors. Conversation content, tool arguments/output, and file paths are excluded. Logs are cleared when the app exits.
+
 ### CLI
 
 ```bash

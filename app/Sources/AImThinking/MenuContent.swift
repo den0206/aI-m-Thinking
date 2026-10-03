@@ -253,6 +253,11 @@ struct MenuContent: View {
             }
             .buttonStyle(.plain)
 
+            Button("Copy Diagnostic Log") {
+                model.copyDiagnosticLog()
+            }
+            .buttonStyle(.plain)
+
             Button("Quit aI'm Thinking") {
                 model.stopCore()
                 NSApplication.shared.terminate(nil)

@@ -109,6 +109,8 @@ func oldCoreExitCannotDisconnectRestartedMonitor() async throws {
         try await Task.sleep(for: .milliseconds(20))
     }
     #expect(rescanned)
+    #expect(bridge.diagnosticLog.contains("type=ready"))
+    #expect(!bridge.diagnosticLog.contains(directory.path))
 }
 
 

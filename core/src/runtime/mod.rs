@@ -602,6 +602,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         let result = match scan_records(&mut session.file, &mut session.cursor, FILE_SCAN_BUDGET) {
             Ok(result) => result,
             Err(_) => {
+                eprintln!("IM_DIAGNOSTIC session={} scan_error", session.handle);
                 session.dirty = false;
                 return;
             }
@@ -610,19 +611,35 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         for range in result.records {
             let parsed = match record_reader(&mut session.file, range) {
                 Ok(reader) => session.parser.parse(reader),
-                Err(_) => continue,
+                Err(_) => {
+                    eprintln!("IM_DIAGNOSTIC session={} read_error", session.handle);
+                    continue;
+                }
             };
 
             session.cursor.commit_through(range.next_offset);
 
-            let Ok(record) = parsed else {
-                continue;
+            let record = match parsed {
+                Ok(record) => record,
+                Err(error) => {
+                    eprintln!(
+                        "IM_DIAGNOSTIC session={} parse_error={:?} offset={}",
+                        session.handle,
+                        error.classify(),
+                        range.start
+                    );
+                    continue;
+                }
             };
 
             if session
                 .interrupted_through
                 .is_some_and(|offset| range.start < offset)
             {
+                eprintln!(
+                    "IM_DIAGNOSTIC session={} interrupted_record_ignored",
+                    session.handle
+                );
                 continue;
             }
 
@@ -630,6 +647,24 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                 .timestamp_ms
                 .is_some_and(|written| written < history_before_ms);
             for event in record.events {
+                let kind = match &event {
+                    NormalizedEvent::TurnStart => "turn_start",
+                    NormalizedEvent::TurnEnd => "turn_end",
+                    NormalizedEvent::ThinkingPulse { .. } => "thinking",
+                    NormalizedEvent::WritingPulse { .. } => "writing",
+                    NormalizedEvent::ToolStart { .. } => "tool_start",
+                    NormalizedEvent::ToolEnd { .. } => "tool_end",
+                    NormalizedEvent::UsagePulse { .. } => "usage",
+                };
+                eprintln!(
+                    "IM_DIAGNOSTIC session={} agent={} event={} history={} accepted={} record_ms={:?}",
+                    session.handle,
+                    session.agent.as_str(),
+                    kind,
+                    history,
+                    session.activity.state().accepts(&event),
+                    record.timestamp_ms
+                );
                 if history {
                     session.activity.apply_history(&event);
                 } else {
@@ -649,7 +684,9 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     fn expire_stale_turns(&mut self) {
         let now = self.now();
         for session in self.sessions.values_mut() {
-            session.activity.expire_stale_turn(now, STALE_TURN_TIMEOUT);
+            if session.activity.expire_stale_turn(now, STALE_TURN_TIMEOUT) {
+                eprintln!("IM_DIAGNOSTIC session={} stale_timeout", session.handle);
+            }
         }
     }
 

@@ -130,6 +130,11 @@ final class AppModel: ObservableObject {
         bridge.stop()
     }
 
+    func copyDiagnosticLog() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(bridge.diagnosticLog, forType: .string)
+    }
+
     private func resetActivity() {
         activities.removeAll(keepingCapacity: false)
         scheduler.stop()
