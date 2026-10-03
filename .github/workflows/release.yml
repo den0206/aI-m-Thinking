@@ -15,7 +15,7 @@ jobs:
   release:
     runs-on: xcode-27
     # A step waiting on a keychain prompt or Apple's servers must fail instead of running for 6 hours.
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -142,14 +142,14 @@ jobs:
           echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
 
       - name: Build signed app
-        timeout-minutes: 15
+        timeout-minutes: 5
         env:
           MARKETING_VERSION: ${{ steps.meta.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: bash scripts/build-app.sh
 
       - name: Notarize and staple app
-        timeout-minutes: 30
+        timeout-minutes: 15
         env:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
@@ -178,7 +178,7 @@ jobs:
         run: codesign --force --timestamp --sign "$SIGN_IDENTITY" "${{ steps.meta.outputs.dmg }}"
 
       - name: Notarize and staple DMG
-        timeout-minutes: 30
+        timeout-minutes: 15
         env:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
@@ -213,7 +213,7 @@ jobs:
 
       # Signing only takes seconds; a hang here means a keychain prompt, so fail fast.
       - name: Build App Store package
-        timeout-minutes: 10
+        timeout-minutes: 3
         env:
           MAS_PROVISIONING_PROFILE: ${{ secrets.MAS_PROVISIONING_PROFILE }}
           MARKETING_VERSION: ${{ steps.meta.outputs.version }}
@@ -233,7 +233,7 @@ jobs:
 
       # --wait covers App Store Connect processing, which usually takes 5-30 minutes.
       - name: Upload App Store package
-        timeout-minutes: 45
+        timeout-minutes: 30
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -244,7 +244,7 @@ jobs:
 
       # Polls for the build (up to 10 min) and for a review cancellation (up to 10 min).
       - name: Submit to App Store review
-        timeout-minutes: 30
+        timeout-minutes: 25
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
