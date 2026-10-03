@@ -132,18 +132,35 @@ func previewStopsEngineWhenIdleButLeavesActivityPlaying() async throws {
     #expect(!audio.isRunning)
 }
 
-private func makeCore(_ body: String) throws -> URL {
+private func makeCore(_ body: String) async throws -> URL {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let executable = directory.appending(path: "fake-core")
-    try ("#!/bin/sh\n" + body).write(to: executable, atomically: true, encoding: .utf8)
+    try ("#!/bin/sh\n[ \"$IM_FAKE_CORE_WARMUP\" = 1 ] && exit 0\n" + body)
+        .write(to: executable, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+    // macOS assesses a new executable on its first exec, which can stall past 0.5 s
+    // (about 7% of runs, up to 2 s) and outlast the tests' handshake timeout.
+    // Pay that once here, outside any timing; later execs start in ~10 ms.
+    // Await without blocking: tests share the main actor, and a blocked one
+    // delays every other test's timers.
+    let warmup = Process()
+    warmup.executableURL = executable
+    warmup.environment = ["IM_FAKE_CORE_WARMUP": "1"]
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        warmup.terminationHandler = { _ in continuation.resume() }
+        do {
+            try warmup.run()
+        } catch {
+            continuation.resume(throwing: error)
+        }
+    }
     return executable
 }
 
 @Test @MainActor
 func crashedCoreRecoversAndCompletedHandshakeDoesNotTimeOut() async throws {
-    let executable = try makeCore(#"""
+    let executable = try await makeCore(#"""
     attempts="$(dirname "$0")/attempts"
     printf '.\n' >> "$attempts"
     if [ "$(wc -l < "$attempts")" -eq 1 ]; then exit 1; fi
@@ -174,7 +191,7 @@ func crashedCoreRecoversAndCompletedHandshakeDoesNotTimeOut() async throws {
 @Test @MainActor
 func handshakeTimeoutRetriesAreBoundedAndManualStopCancelsRetry() async throws {
     // Never announces hello; unlike sleep, read exits immediately on shutdown/EOF.
-    let executable = try makeCore(#"""
+    let executable = try await makeCore(#"""
     printf '.\n' >> "$(dirname "$0")/attempts"
     while read -r command; do
         case "$command" in *shutdown*) exit 0 ;; esac
