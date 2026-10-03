@@ -57,6 +57,7 @@ cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
 chmod 755 "$MACOS/ImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
+cp "$ROOT/app/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -75,6 +76,8 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>
     <string>$APP_NAME</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
