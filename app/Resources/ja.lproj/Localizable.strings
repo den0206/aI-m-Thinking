@@ -90,9 +90,6 @@
 "Occasional room sounds while an agent is working" = "エージェントの作業中に、ごくまれに環境音を鳴らします";
 "Ambient Tuning (Debug)" = "環境音調整（デバッグ）";
 "Gain" = "音量係数";
-"Reverb" = "リバーブ";
-"Interval" = "発生間隔";
 "Rain" = "雨";
 "Thunder" = "遠雷";
 "Page" = "ページ";
-"Writing" = "筆記";

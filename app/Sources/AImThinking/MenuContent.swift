@@ -50,7 +50,9 @@ struct MenuContent: View {
                 set: model.setTypingSpeed
             )
 
-            ambientModule
+            #if DEBUG
+            ambientTuningModule
+            #endif
             footer
         }
     }
@@ -319,23 +321,9 @@ struct MenuContent: View {
 
     // MARK: - Ambient accents
 
-    private var ambientModule: some View {
+    #if DEBUG
+    private var ambientTuningModule: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle(
-                "Ambient Accents",
-                isOn: Binding(
-                    get: { model.ambientAccentsEnabled },
-                    set: { model.setAmbientAccentsEnabled($0) }
-                )
-            )
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-
-            Text("Occasional room sounds while an agent is working")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            #if DEBUG
             DisclosureGroup("Ambient Tuning (Debug)") {
                 VStack(alignment: .leading, spacing: 8) {
                     debugSlider(
@@ -345,36 +333,19 @@ struct MenuContent: View {
                         format: { String(format: "%.0f%%", $0 * 100) },
                         set: model.setAmbientDebugGain
                     )
-                    debugSlider(
-                        title: "Reverb",
-                        value: model.ambientDebugReverb,
-                        range: 0...30,
-                        format: { String(format: "%.0f%%", $0) },
-                        set: model.setAmbientDebugReverb
-                    )
-                    debugSlider(
-                        title: "Interval",
-                        value: model.ambientDebugIntervalScale,
-                        range: 0.01...1.0,
-                        format: { String(format: "×%.2f", $0) },
-                        set: model.setAmbientDebugIntervalScale
-                    )
                     HStack(spacing: 6) {
                         Button("Rain") { model.previewAmbient(.rain) }
                         Button("Thunder") { model.previewAmbient(.thunder) }
                         Button("Page") { model.previewAmbient(.pageTurn) }
-                        Button("Writing") { model.previewAmbient(.writing) }
                     }
                     .controlSize(.small)
                 }
                 .padding(.top, 4)
             }
-            #endif
         }
         .module()
     }
 
-    #if DEBUG
     private func debugSlider(
         title: String,
         value: Double,
@@ -413,6 +384,17 @@ struct MenuContent: View {
             if let message = model.loginItemMessage {
                 LoginItemNotice(message: message)
             }
+
+            Toggle(
+                "Ambient Accents",
+                isOn: Binding(
+                    get: { model.ambientAccentsEnabled },
+                    set: { model.setAmbientAccentsEnabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .help("Occasional room sounds while an agent is working")
 
             Button("Restart Monitor") {
                 model.restartCore()

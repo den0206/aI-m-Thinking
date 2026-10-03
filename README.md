@@ -52,7 +52,7 @@ Builds are distributed from **this repository's own GitHub Releases**; there is 
 - Random sound per turn / adjustable typing speed
 - Menu bar key animation that follows activity
 - Volume / Mute
-- Optional **Ambient Accents**: very occasional rain, distant thunder, page-turn, and writing sounds while an agent is working (off by default)
+- Optional **Ambient Accents**: very occasional rain, distant thunder, and page-turn sounds while an agent is working (off by default)
 - Start at Login
 - Automatic rescan after sleep / wake
 - Fail-open design that never rewrites agent configuration files
