@@ -680,7 +680,16 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             .map(|(path, _)| path.clone());
 
         if let Some(path) = candidate {
+            // Keep its read position, or reconciliation would find the file
+            // untracked, reopen it and evict another session every pass.
+            let cursor = self
+                .sessions
+                .get(&path)
+                .map(|session| (session.agent, session.cursor));
             self.close_path(&path);
+            if let Some((agent, cursor)) = cursor {
+                self.insert_baseline(path, agent, cursor);
+            }
             true
         } else {
             false
@@ -1289,6 +1298,34 @@ mod tests {
         }
         assert_eq!(fixture.runtime.sessions.len(), MAX_ACTIVE_SESSIONS);
         assert!(fixture.session(&paused).paused);
+    }
+
+    #[test]
+    fn evicted_session_is_not_reopened_by_reconciliation() {
+        let mut fixture = Fixture::new();
+        for i in 0..=MAX_ACTIVE_SESSIONS {
+            fixture.advance(Duration::from_millis(1));
+            let path = fixture.path(&format!("idle-{i}.jsonl"));
+            std::fs::write(&path, "").unwrap();
+            fixture.change(ChangeKind::Create, &path);
+        }
+        fixture.output.take_messages();
+
+        fixture.runtime.reconcile_files();
+
+        assert!(
+            fixture
+                .output
+                .take_messages()
+                .iter()
+                .all(|message| !message["type"].as_str().unwrap().starts_with("session_"))
+        );
+        assert!(
+            fixture
+                .runtime
+                .baselines
+                .contains_key(&fixture.path("idle-0.jsonl"))
+        );
     }
 
     #[test]

@@ -21,7 +21,7 @@ const STALE_TURN_TIMEOUT_SECS: u64 = 600;
 ```
 
 - File notifications and app commands share one bounded queue of `MAX_ACTIVITY_QUEUE` entries. When it is full, notifications are dropped, every tracked session is re-checked, and `ACT4004` is reported.
-- Startup baselines are recorded from directory metadata, newest files first. When the per-agent budget is full, the least recently baselined file is forgotten so a newly active file can always be tracked.
+- Startup baselines are recorded from directory metadata, newest files first. When the per-agent budget is full, the least recently baselined file is forgotten so a newly active file can always be tracked. An idle session evicted at `MAX_ACTIVE_SESSIONS` becomes a baseline at its read position, so it is resumed rather than replayed or reopened.
 - Activity is emitted at most every `ACTIVITY_INTERVAL_MS` per session, except phase changes. A session that falls silent emits one zero-intensity update and then stops. Every 3 seconds, a bounded metadata scan reconciles files to recover missed native notifications, including appends to startup baselines. Transcript content is read only when new bytes need processing.
 - A turn with no signal for `STALE_TURN_TIMEOUT_SECS` is closed to IDLE so interrupted sessions do not stay active or block eviction.
 

@@ -6,6 +6,10 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ## [Unreleased]
 
+### Fixed
+
+- With more than 64 tracked sessions, idle sessions are no longer reopened and closed every few seconds.
+
 ## [0.1.0] — 2026-10-03
 
 ### Added
