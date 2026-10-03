@@ -6,6 +6,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-10-03
+
 ### Added
 
 - A first-launch window points to the menu-bar icon and offers Start at Login. In the App Store build it also asks for the Claude Code / Codex session folders and cannot be dismissed until at least one is allowed (Quit stays available).
@@ -52,3 +54,4 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Session files older than the startup baseline budget are tracked once they are appended to.
 - A creation event for a file that existed before monitoring no longer replays its history.
 - Activity updates are capped at 10 Hz per session, the monitor sleeps between events and bounded metadata reconciliation, and the core event queue is bounded.
+
