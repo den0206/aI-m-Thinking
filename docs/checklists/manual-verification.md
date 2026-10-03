@@ -71,6 +71,7 @@
 - [ ] OFFにすると登録解除される
 - [ ] shell rc / LaunchAgent plistをaI'm Thinkingが生成しない
 - [ ] Debug版の操作がRelease版の登録を意図せず変更しない
+- [ ] 登録失敗・承認待ちの説明が表示され、Login Items設定を開ける
 
 ## H. Privacy / fail-open
 

@@ -10,6 +10,7 @@ struct MenuContent: View {
         }
         .padding(12)
         .frame(width: 320)
+        .onAppear { model.refreshLoginStatus() }
     }
 
     private var content: some View {
@@ -307,6 +308,10 @@ struct MenuContent: View {
             )
             .toggleStyle(.switch)
             .controlSize(.mini)
+
+            if let message = model.loginItemMessage {
+                LoginItemNotice(message: message)
+            }
 
             Button("Restart Monitor") {
                 model.restartCore()

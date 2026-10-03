@@ -92,6 +92,19 @@ func observerFailureClearsOnlyAffectedActivityAndExplainsRecovery() throws {
 }
 
 @Test @MainActor
+func loginRegistrationErrorIsShownWithoutChangingOSSettings() {
+    let suite = "im-thinking-test-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let model = AppModel(defaults: defaults, startMonitoring: false, loginItemSetter: { _ in
+        throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Registration denied"])
+    })
+    model.setStartAtLogin(true)
+    #expect(model.loginItemMessage?.contains("Registration denied") == true)
+    #expect(model.startAtLogin == LoginItemManager.isEnabled)
+}
+
+@Test @MainActor
 func previewStopsEngineWhenIdleButLeavesActivityPlaying() async throws {
     let sounds = URL(filePath: #filePath).deletingLastPathComponent()
         .appending(path: "../../Resources/Sounds").standardized

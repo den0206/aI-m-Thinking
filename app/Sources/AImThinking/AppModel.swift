@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var muted: Bool
     static let defaultVolume = 0.55
     @Published private(set) var startAtLogin: Bool
+    @Published private(set) var loginItemMessage: String?
     @Published private(set) var observerStatuses: [AgentService: String] = [:]
     @Published private(set) var claudeFolderAuthorized = false
     @Published private(set) var codexFolderAuthorized = false
@@ -34,6 +35,7 @@ final class AppModel: ObservableObject {
 
     private let bridge: CoreBridge
     private let rootProvider: any AgentRootProviding
+    private let loginItemSetter: (Bool) throws -> Void
     private let audio: KeyboardAudioEngine
     private let scheduler: TypingScheduler
     private let defaults: UserDefaults
@@ -41,8 +43,10 @@ final class AppModel: ObservableObject {
     private var wakeTask: Task<Void, Never>?
 
     init(defaults: UserDefaults = .standard, startMonitoring: Bool = true,
-         distributionMode: DistributionMode = .current) {
+         distributionMode: DistributionMode = .current,
+         loginItemSetter: @escaping (Bool) throws -> Void = LoginItemManager.setEnabled) {
         self.defaults = defaults
+        self.loginItemSetter = loginItemSetter
         let storedPack = defaults.string(forKey: "soundPack").flatMap(SoundPackID.init(rawValue:))
         let storedVolume = defaults.object(forKey: "volume") as? Double
         let initialVolume = max(0.0, min(1.0, storedVolume ?? Self.defaultVolume))
@@ -269,11 +273,21 @@ final class AppModel: ObservableObject {
 
     func setStartAtLogin(_ enabled: Bool) {
         do {
-            try LoginItemManager.setEnabled(enabled)
+            try loginItemSetter(enabled)
+            loginItemMessage = LoginItemManager.approvalMessage
         } catch {
-            // The OS remains the source of truth.
+            loginItemMessage = "Could not change Start at Login: \(error.localizedDescription)"
         }
         startAtLogin = LoginItemManager.isEnabled
+    }
+
+    func refreshLoginStatus() {
+        startAtLogin = LoginItemManager.isEnabled
+        if let message = LoginItemManager.approvalMessage {
+            loginItemMessage = message
+        } else if startAtLogin {
+            loginItemMessage = nil
+        }
     }
 
     private func refreshAuthorizationState() {

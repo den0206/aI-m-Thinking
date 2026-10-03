@@ -30,6 +30,9 @@ struct OnboardingView: View {
             }
 
             loginRow
+            if let message = model.loginItemMessage {
+                LoginItemNotice(message: message)
+            }
             footer
         }
         .padding(.horizontal, 32)
@@ -39,6 +42,7 @@ struct OnboardingView: View {
         // The App Store build stays here until a folder is allowed (or Quit).
         .windowDismissBehavior(model.canFinishOnboarding ? .enabled : .disabled)
         .onAppear {
+            model.refreshLoginStatus()
             // A menu bar app is never active on launch; bring the window forward.
             NSApp.activate()
         }
@@ -219,6 +223,21 @@ struct FolderErrorLabel: View {
             .font(.caption)
             .foregroundStyle(Color.errorText)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct LoginItemNotice: View {
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Login Items Settings…") { LoginItemManager.openSettings() }
+                .font(.caption)
+        }
     }
 }
 
