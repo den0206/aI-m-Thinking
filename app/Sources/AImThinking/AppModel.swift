@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var typingSpeed: Double
     static let typingSpeedRange = 0.3...2.1
     @Published private(set) var muted: Bool
+    static let defaultVolume = 0.55
     @Published private(set) var startAtLogin: Bool
     @Published private(set) var claudeFolderAuthorized = false
     @Published private(set) var codexFolderAuthorized = false
@@ -39,10 +40,11 @@ final class AppModel: ObservableObject {
         self.defaults = defaults
         let storedPack = defaults.string(forKey: "soundPack").flatMap(SoundPackID.init(rawValue:))
         let storedVolume = defaults.object(forKey: "volume") as? Double
-        let initialVolume = max(0.0, min(1.0, storedVolume ?? 0.55))
+        let initialVolume = max(0.0, min(1.0, storedVolume ?? Self.defaultVolume))
         let storedSpeed = defaults.object(forKey: "typingSpeed") as? Double
         let initialSpeed = (storedSpeed ?? 1.2).clamped(to: Self.typingSpeedRange)
-        let initialMuted = defaults.bool(forKey: "muted")
+        // A zero volume saved before mute followed the slider counts as muted.
+        let initialMuted = defaults.bool(forKey: "muted") || initialVolume == 0
         let mode = DistributionMode.current
 
         let rootProvider: any AgentRootProviding
@@ -210,9 +212,19 @@ final class AppModel: ObservableObject {
         volume = value
         defaults.set(value, forKey: "volume")
         audio.volume = value
+        // The slider's bottom is mute; dragging up again unmutes.
+        if (value == 0) != muted {
+            setMuted(value == 0)
+        }
     }
 
     func setMuted(_ newValue: Bool) {
+        // Unmuting from a zeroed slider would stay silent; bring it back up.
+        if !newValue, volume == 0 {
+            volume = Self.defaultVolume
+            defaults.set(volume, forKey: "volume")
+            audio.volume = volume
+        }
         muted = newValue
         defaults.set(newValue, forKey: "muted")
         audio.muted = newValue

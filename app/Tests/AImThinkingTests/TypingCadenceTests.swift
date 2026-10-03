@@ -29,6 +29,30 @@ func speedSliderChangesRateAtFullIntensity() {
 }
 
 @Test @MainActor
+func zeroVolumeMutesAndUnmuteRestoresVolume() {
+    let suite = "im-thinking-test-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let model = AppModel(defaults: defaults, startMonitoring: false)
+    model.setVolume(0)
+    #expect(model.muted)
+    model.setMuted(false)
+    #expect(model.volume > 0)
+    model.setVolume(0.3)
+    #expect(!model.muted)
+}
+
+@Test @MainActor
+func savedZeroVolumeStartsMuted() {
+    let suite = "im-thinking-test-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(0.0, forKey: "volume")
+    let model = AppModel(defaults: defaults, startMonitoring: false)
+    #expect(model.muted)
+}
+
+@Test @MainActor
 func activityAnimationStopsForIdleSilenceAndMonitorShutdown() async throws {
     let suite = "im-thinking-test-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!

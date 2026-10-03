@@ -25,6 +25,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Minimum deployment target is macOS 26.0.
 - Swift toolchain is pinned to Swift 6.4.
 - The typing speed slider spans 0.3–2.1× and the cap is 30 keys/s, so the fast end is audibly faster.
+- Volume at the slider's left end is mute: the fill disappears, the mute tile follows, and unmuting from zero restores the default volume.
 
 ### Fixed
 

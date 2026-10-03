@@ -27,8 +27,8 @@ struct MenuContent: View {
 
             sliderModule(
                 title: "Volume",
-                systemImage: "speaker.wave.2.fill",
-                value: model.volume,
+                systemImage: model.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                value: model.muted ? 0 : model.volume,
                 in: 0...1,
                 set: model.setVolume
             )
@@ -303,16 +303,18 @@ private struct ModuleSlider: View {
                     .fill(.primary.opacity(0.12))
                 Capsule()
                     .fill(.tint.opacity(0.75))
-                    .frame(width: max(Self.height, geometry.size.width * fraction))
+                    .frame(width: fraction > 0 ? max(Self.height, geometry.size.width * fraction) : 0)
                 Image(systemName: systemImage)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(fraction > 0 ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
                     .frame(width: Self.height)
             }
             .contentShape(Capsule())
             .gesture(
                 DragGesture(minimumDistance: 0).onChanged { drag in
-                    let f = min(max(drag.location.x / geometry.size.width, 0), 1)
+                    // The fill never shrinks below the icon, so the icon's half is the bottom.
+                    let f = drag.location.x < Self.height / 2
+                        ? 0 : min(drag.location.x / geometry.size.width, 1)
                     set(range.lowerBound + f * (range.upperBound - range.lowerBound))
                 }
             )
