@@ -143,21 +143,19 @@ SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
   ./scripts/build-app.sh
 ```
 
-### GitHub Release
+### Release
 
-`vX.Y.Z` タグをpushすると、Release workflowが次を行います。
+`release/Ver_X.Y.Z` ブランチをpushすると、Release workflowが次を行います。
 
 1. Rust / Swift tests
-2. Developer ID署名
-3. `.app` notarization + staple
-4. DMG生成
-5. DMG署名
-6. DMG notarization + staple
-7. このリポジトリのGitHub ReleaseへDMGを添付
+2. `CHANGELOG.md` の `[Unreleased]` を `X.Y.Z` へ切り出す
+3. DMGをビルド・署名・公証し、切り出した節をノートにして `vX.Y.Z` のGitHub Releaseへ添付
+4. Mac App Store用パッケージをビルドしてアップロードし、同じ節を「新機能」に入れて審査へ提出
+5. 更新した `CHANGELOG.md` を `main` へコミット
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git switch -c release/Ver_0.1.0
+git push origin release/Ver_0.1.0
 ```
 
 必要なSecretsや証明書準備は [Release Guide](docs/RELEASE.md) を参照してください。

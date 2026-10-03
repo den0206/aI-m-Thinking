@@ -51,7 +51,3 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Session files older than the startup baseline budget are tracked once they are appended to.
 - A creation event for a file that existed before monitoring no longer replays its history.
 - Activity updates are capped at 10 Hz per session, the monitor sleeps between events and bounded metadata reconciliation, and the core event queue is bounded.
-
-## [0.1.0] - Unreleased
-
-- Initial public release preparation.

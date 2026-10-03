@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: ['release/Ver_*']
 
 permissions:
   contents: write
@@ -23,10 +22,9 @@ jobs:
       - name: Resolve version
         id: meta
         run: |
-          TAG="$GITHUB_REF_NAME"
-          VERSION="${TAG#v}"
+          VERSION="${GITHUB_REF_NAME#release/Ver_}"
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Release tag must be vX.Y.Z (received: $TAG)"
+            echo "::error::Release branch must be release/Ver_X.Y.Z (received: $GITHUB_REF_NAME)"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -43,6 +41,12 @@ jobs:
           cargo clippy --manifest-path core/Cargo.toml --all-targets -- -D warnings
           swift test --package-path app
 
+      - name: Cut changelog section
+        run: |
+          scripts/release-changelog.sh --check
+          scripts/release-changelog.sh "${{ steps.meta.outputs.version }}" "$(date -u +%F)"
+          scripts/release-changelog.sh --section "${{ steps.meta.outputs.version }}" > "$RUNNER_TEMP/notes.md"
+
       - name: Require signing and notarization secrets
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
@@ -52,8 +56,15 @@ jobs:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          MAS_CERT_P12: ${{ secrets.MAS_CERT_P12 }}
+          MAS_CERT_PASSWORD: ${{ secrets.MAS_CERT_PASSWORD }}
+          MAS_PROVISIONING_PROFILE: ${{ secrets.MAS_PROVISIONING_PROFILE }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
-          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD MACOS_SIGN_IDENTITY KEYCHAIN_PASSWORD NOTARY_APPLE_ID NOTARY_TEAM_ID NOTARY_PASSWORD; do
+          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD MACOS_SIGN_IDENTITY KEYCHAIN_PASSWORD NOTARY_APPLE_ID NOTARY_TEAM_ID NOTARY_PASSWORD \
+            MAS_CERT_P12 MAS_CERT_PASSWORD MAS_PROVISIONING_PROFILE ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is required for public release"
               exit 1
@@ -66,6 +77,8 @@ jobs:
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          MAS_CERT_P12: ${{ secrets.MAS_CERT_P12 }}
+          MAS_CERT_PASSWORD: ${{ secrets.MAS_CERT_PASSWORD }}
         run: |
           KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
@@ -73,6 +86,9 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          # Apple Distribution + Mac Installer Distribution, exported together into one .p12.
+          printf '%s' "$MAS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/mas.p12"
+          security import "$RUNNER_TEMP/mas.p12" -k "$KEYCHAIN" -P "$MAS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
@@ -135,11 +151,53 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
           VERSION: ${{ steps.meta.outputs.version }}
           DMG: ${{ steps.meta.outputs.dmg }}
         run: |
-          gh release create "$TAG" "$DMG" \
-            --verify-tag \
+          # A re-run must not fail on the release it already created.
+          gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
+          gh release create "v$VERSION" "$DMG" \
+            --target "$GITHUB_SHA" \
             --title "aI'm Thinking $VERSION" \
-            --generate-notes
+            --notes-file "$RUNNER_TEMP/notes.md"
+
+      - name: Build and upload App Store package
+        env:
+          MAS_PROVISIONING_PROFILE: ${{ secrets.MAS_PROVISIONING_PROFILE }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+          MARKETING_VERSION: ${{ steps.meta.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$MAS_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/mas.provisionprofile"
+          echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+          echo "MAS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          CONFIG=appstore \
+          SIGN_IDENTITY="Apple Distribution: Yuuki Sakai (4KJFNVZ8R6)" \
+          INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Yuuki Sakai (4KJFNVZ8R6)" \
+          PROVISIONING_PROFILE="$RUNNER_TEMP/mas.provisionprofile" \
+          ASC_KEY_P8="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            bash scripts/build-app.sh
+
+      - name: Submit to App Store review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: scripts/appstore-release.sh "${{ steps.meta.outputs.version }}" "$MAS_BUILD_NUMBER" "$RUNNER_TEMP/notes.md"
+
+      - name: Sync changelog to main
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git switch -f -C main origin/main
+          scripts/release-changelog.sh "$VERSION" "$(date -u +%F)"
+          git add CHANGELOG.md
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: v${VERSION} の CHANGELOG を反映 [skip ci]"
+          git push origin main

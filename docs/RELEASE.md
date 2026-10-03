@@ -21,16 +21,18 @@ Applications -> /Applications
 
 ## 2. Trigger
 
-`vX.Y.Z` 形式のtag pushで `.github/workflows/release.yml` が起動します。
+`release/Ver_X.Y.Z` ブランチのpushで `.github/workflows/release.yml` が起動します。
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git switch -c release/Ver_0.1.0
+git push origin release/Ver_0.1.0
 ```
 
-tag名が厳密な `v<major>.<minor>.<patch>` でない場合はworkflowを停止します。
+ブランチ名が厳密な `release/Ver_<major>.<minor>.<patch>` でない場合はworkflowを停止します。
 
-GitHub Releaseはtagが属する**このリポジトリ**に作成されます。別repository用PATは不要です。
+GitHub Release（tag `vX.Y.Z`）は**このリポジトリ**に作成されます。別repository用PATは不要です。
+
+リリースノートは `CHANGELOG.md` の `[Unreleased]` です。push前に英語で書いておきます（`scripts/release-changelog.sh --check` が日本語の混入と未知の節見出しを止めます）。
 
 ## 3. Release pipeline
 
@@ -47,7 +49,12 @@ GitHub Releaseはtagが属する**このリポジトリ**に作成されます�
 11. DMG自体をDeveloper ID署名
 12. DMGをnotarize + staple
 13. codesign / stapler / Gatekeeper確認
-14. GitHub Release作成 + DMG添付
+14. GitHub Release作成 + DMG添付（ノートはCHANGELOGの切り出した節）
+15. Mac App Store用 `.pkg` をビルドし、API keyでApp Store Connectへアップロード
+16. `scripts/appstore-release.sh` でApp Storeバージョンを作成・ビルドを紐付け・「新機能」を入力し、審査へ提出
+17. 切り出したCHANGELOGを `main` へコミット
+
+App Storeの初回バージョンは「新機能」を入力できないため飛ばします。スクリーンショットや審査情報などの掲載情報が未入力だと、審査への提出で失敗します。
 
 `.app` を先にnotarize/stapleしてからDMGへ入れます。DMGだけをnotarizeする構成にはしません。
 
@@ -62,6 +69,12 @@ GitHub Releaseはtagが属する**このリポジトリ**に作成されます�
 | `NOTARY_APPLE_ID` | Apple ID |
 | `NOTARY_TEAM_ID` | Apple Developer Team ID |
 | `NOTARY_PASSWORD` | Apple app-specific password |
+| `MAS_CERT_P12` | Apple Distribution と Mac Installer Distribution の証明書 + private keyをまとめた `.p12` のbase64 |
+| `MAS_CERT_PASSWORD` | 上記 `.p12` password |
+| `MAS_PROVISIONING_PROFILE` | Mac App Store Connect provisioning profileのbase64（2027-10-03 期限切れ） |
+| `ASC_KEY_ID` | App Store Connect API key ID（App Manager権限） |
+| `ASC_ISSUER_ID` | App Store Connect API issuer ID |
+| `ASC_KEY_P8` | API key `.p8` ファイルの中身 |
 
 Release workflowはこれらが欠けた状態では公開しません。未署名DMGを誤ってReleaseしないためです。
 
@@ -157,9 +170,10 @@ spctl -a -t open --context context:primary-signature -vv aIm-Thinking-0.1.0.dmg
 
 ## 9. Versioning
 
+- Release branch: `release/Ver_X.Y.Z`
 - Git tag: `vX.Y.Z`
 - `CFBundleShortVersionString`: `X.Y.Z`
-- `CFBundleVersion`: GitHub Actions `run_number`
+- `CFBundleVersion`: DMGはGitHub Actions `run_number`、App Storeは `run_number.run_attempt`（再実行でも番号が重複しない）
 
 Release済みtagは上書きしません。修正は新しいpatch versionで公開します。
 
@@ -179,7 +193,5 @@ Rebornを参考にしつつ、aI'm Thinkingでは次を入れていません。
 - self-update
 - release専用repository
 - `+N` 独自再リリース採番
-- release branchからのCHANGELOG自動書換え
-- App Store配布
 
-構成を小さく保ち、タグ -> signed/notarized DMG -> same-repo GitHub Releaseに限定します。
+構成を小さく保ち、release branch -> signed/notarized DMG + App Store提出 -> same-repo GitHub Releaseに限定します。

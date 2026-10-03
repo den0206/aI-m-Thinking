@@ -143,21 +143,19 @@ SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
   ./scripts/build-app.sh
 ```
 
-### GitHub Release
+### Release
 
-Pushing a `vX.Y.Z` tag runs the Release workflow, which:
+Pushing a `release/Ver_X.Y.Z` branch runs the Release workflow, which:
 
 1. Runs Rust / Swift tests
-2. Signs with Developer ID
-3. Notarizes and staples the `.app`
-4. Builds the DMG
-5. Signs the DMG
-6. Notarizes and staples the DMG
-7. Attaches the DMG to this repository's GitHub Release
+2. Moves `[Unreleased]` in `CHANGELOG.md` under `X.Y.Z`
+3. Builds, signs, and notarizes the DMG and attaches it to the `vX.Y.Z` GitHub Release with that changelog section as notes
+4. Builds the Mac App Store package, uploads it, sets the changelog section as What's New, and submits it for review
+5. Commits the updated `CHANGELOG.md` to `main`
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git switch -c release/Ver_0.1.0
+git push origin release/Ver_0.1.0
 ```
 
 See the [Release Guide](docs/RELEASE.md) for required secrets and certificate setup.
