@@ -272,6 +272,10 @@ struct MenuContent: View {
             }
             .buttonStyle(.plain)
 
+            Link("Privacy Policy", destination: URL(string: "https://den0206.github.io/aI-m-Thinking/privacy.html")!)
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+
             Button("Quit aI'm Thinking") {
                 model.quit()
             }
