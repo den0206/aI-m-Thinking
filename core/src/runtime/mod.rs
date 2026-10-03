@@ -1508,6 +1508,10 @@ mod tests {
             fixture.session(&other).activity.state().phase(),
             AgentState::Thinking
         );
+
+        // Fixture's Drop only removes projects/; base also holds sessions/.
+        drop(fixture);
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]
