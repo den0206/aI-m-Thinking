@@ -73,7 +73,6 @@ Deliberately not adopted from Reborn:
 
 - dedicated public release repository
 - self-update
-- custom `+N` re-release numbering
 - Accessibility/TCC-specific development infrastructure
 - Reborn-specific application/system abstraction layers
 

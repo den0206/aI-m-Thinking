@@ -27,7 +27,34 @@ jobs:
             echo "::error::Release branch must be release/Ver_X.Y.Z (received: $GITHUB_REF_NAME)"
             exit 1
           fi
+
+          EXISTING="$(git ls-remote --tags origin | sed -n 's#.*refs/tags/v\([0-9][0-9.+]*\)$#\1#p' | sort -u)"
+
+          # A typo in the branch name must not publish an older version.
+          HIGHEST="$(printf '%s\n' "$EXISTING" | sed 's/+.*//' | sort -V | tail -1)"
+          if [ -n "$HIGHEST" ] && [ "$(printf '%s\n%s\n' "$HIGHEST" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "::error::$VERSION is older than the latest release $HIGHEST. Check the branch name."
+            exit 1
+          fi
+
+          # Re-releasing the same version keeps the earlier releases and tags this one vX.Y.Z+N.
+          # The app and the App Store keep X.Y.Z; only the build number grows.
+          # Re-running for the same commit (e.g. after an App Store failure) reuses its release.
+          REUSED="$(git ls-remote --tags origin | awk -v sha="$GITHUB_SHA" -v v="v$VERSION" \
+            '$1 == sha { t = $2; sub(/^refs\/tags\//, "", t); if (t == v || index(t, v "+") == 1) print t }' | head -1)"
+          TAG="v$VERSION"
+          if [ -n "$REUSED" ]; then
+            TAG="$REUSED"
+            echo "::notice::$GITHUB_SHA is already released as $TAG, reusing it"
+          elif printf '%s\n' "$EXISTING" | grep -Fxq "$VERSION"; then
+            N=1
+            while printf '%s\n' "$EXISTING" | grep -Fxq "$VERSION+$N"; do N=$((N + 1)); done
+            TAG="v$VERSION+$N"
+            echo "::notice::v$VERSION already exists, releasing as $TAG"
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "dmg=aIm-Thinking-$VERSION.dmg" >> "$GITHUB_OUTPUT"
 
       - name: Verify toolchain
@@ -70,6 +97,19 @@ jobs:
               exit 1
             fi
           done
+
+      # Approved or released App Store versions cannot take a new build. Stop before anything is
+      # rebuilt or the existing GitHub Release is replaced.
+      - name: Check App Store version can take a new build
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+          ASC_KEY_P8="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" scripts/appstore-release.sh --check "${{ steps.meta.outputs.version }}"
 
       - name: Import Developer ID certificate
         env:
@@ -151,14 +191,13 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
           DMG: ${{ steps.meta.outputs.dmg }}
         run: |
-          # A re-run must not fail on the release it already created.
-          gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
-          gh release create "v$VERSION" "$DMG" \
+          gh release view "$TAG" >/dev/null 2>&1 && exit 0
+          gh release create "$TAG" "$DMG" \
             --target "$GITHUB_SHA" \
-            --title "aI'm Thinking $VERSION" \
+            --title "aI'm Thinking ${TAG#v}" \
             --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Build and upload App Store package
@@ -166,20 +205,16 @@ jobs:
           MAS_PROVISIONING_PROFILE: ${{ secrets.MAS_PROVISIONING_PROFILE }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
           MARKETING_VERSION: ${{ steps.meta.outputs.version }}
-          BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          # +100 keeps CI builds above the builds uploaded by hand before CI existed (0.1.0 build 2).
+          BUILD_NUMBER="$((100 + GITHUB_RUN_NUMBER)).$GITHUB_RUN_ATTEMPT"
           printf '%s' "$MAS_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/mas.provisionprofile"
-          echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
           echo "MAS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          CONFIG=appstore \
+          BUILD_NUMBER="$BUILD_NUMBER" CONFIG=appstore \
           SIGN_IDENTITY="Apple Distribution: Yuuki Sakai (4KJFNVZ8R6)" \
           INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Yuuki Sakai (4KJFNVZ8R6)" \
           PROVISIONING_PROFILE="$RUNNER_TEMP/mas.provisionprofile" \
-          ASC_KEY_P8="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
             bash scripts/build-app.sh
 
       - name: Submit to App Store review

@@ -28,7 +28,7 @@ git switch -c release/Ver_0.1.0
 git push origin release/Ver_0.1.0
 ```
 
-ブランチ名が厳密な `release/Ver_<major>.<minor>.<patch>` でない場合はworkflowを停止します。
+ブランチ名が厳密な `release/Ver_<major>.<minor>.<patch>` でない場合と、既存の最新Releaseより古いバージョンの場合はworkflowを停止します。
 
 GitHub Release（tag `vX.Y.Z`）は**このリポジトリ**に作成されます。別repository用PATは不要です。
 
@@ -39,20 +39,21 @@ GitHub Release（tag `vX.Y.Z`）は**このリポジトリ**に作成されま�
 1. Swift 6.4 toolchain確認
 2. Rust tests / Clippy
 3. Swift tests
-4. Developer ID certificateを一時Keychainへimport
-5. release `.app` build
-6. Rust helperを署名
-7. `.app` bundleをDeveloper ID + Hardened Runtime + timestampで署名
-8. `.app` をzip化してApple Notaryへ提出
-9. 元の `.app` へnotarization ticketをstaple
-10. `.app` + `/Applications` link入りDMG生成
-11. DMG自体をDeveloper ID署名
-12. DMGをnotarize + staple
-13. codesign / stapler / Gatekeeper確認
-14. GitHub Release作成 + DMG添付（ノートはCHANGELOGの切り出した節）
-15. Mac App Store用 `.pkg` をビルドし、API keyでApp Store Connectへアップロード
-16. `scripts/appstore-release.sh` でApp Storeバージョンを作成・ビルドを紐付け・「新機能」を入力し、審査へ提出
-17. 切り出したCHANGELOGを `main` へコミット
+4. `scripts/appstore-release.sh --check` でApp Storeがこのバージョンの新しいビルドを受け付けるか確認（承認済み・公開済み、または別バージョンが審査中・公開待ちなら停止）
+5. Developer ID certificateを一時Keychainへimport
+6. release `.app` build
+7. Rust helperを署名
+8. `.app` bundleをDeveloper ID + Hardened Runtime + timestampで署名
+9. `.app` をzip化してApple Notaryへ提出
+10. 元の `.app` へnotarization ticketをstaple
+11. `.app` + `/Applications` link入りDMG生成
+12. DMG自体をDeveloper ID署名
+13. DMGをnotarize + staple
+14. codesign / stapler / Gatekeeper確認
+15. GitHub Release作成 + DMG添付（ノートはCHANGELOGの切り出した節。同じコミットのReleaseがあれば作らない）
+16. Mac App Store用 `.pkg` をビルドし、API keyでApp Store Connectへアップロード
+17. `scripts/appstore-release.sh` でApp Storeバージョンを作成・審査待ち/審査中なら取り消し・ビルドを紐付け・「新機能」を入力し、審査へ提出
+18. 切り出したCHANGELOGを `main` へコミット
 
 App Storeの初回バージョンは「新機能」を入力できないため飛ばします。スクリーンショットや審査情報などの掲載情報が未入力だと、審査への提出で失敗します。
 
@@ -171,11 +172,20 @@ spctl -a -t open --context context:primary-signature -vv aIm-Thinking-0.1.0.dmg
 ## 9. Versioning
 
 - Release branch: `release/Ver_X.Y.Z`
-- Git tag: `vX.Y.Z`
+- Git tag: `vX.Y.Z`（同じバージョンの出し直しは `vX.Y.Z+N`）
 - `CFBundleShortVersionString`: `X.Y.Z`
-- `CFBundleVersion`: DMGはGitHub Actions `run_number`、App Storeは `run_number.run_attempt`（再実行でも番号が重複しない）
+- `CFBundleVersion`: DMGはGitHub Actions `run_number`、App Storeは `(100 + run_number).run_attempt`（再実行でも番号が重複せず、CI導入前に手元からアップロードしたビルド2より大きくなる）
 
-Release済みtagは上書きしません。修正は新しいpatch versionで公開します。
+### 同じバージョンで出し直す
+
+修正コミットを同じ `release/Ver_X.Y.Z` ブランチへpushすると、そのバージョンで出し直します。
+
+- GitHub Releaseは既存の `vX.Y.Z` を残し、`vX.Y.Z+1`、`+2` … と採番して新しく作る（DMG名とアプリのバージョンは `X.Y.Z` のまま）
+- 失敗したworkflowのRe-runなど、同じコミットのReleaseがすでにある場合は採番せずそのReleaseを使い、App Storeへの提出だけをやり直す
+- ノートと「新機能」はreleaseブランチの `[Unreleased]` 全体（初回分を含む）。修正項目をそこへ追記した場合、`main` の `[X.Y.Z]` 節には自動反映されないので手で追記する
+- `--check` の後、ビルド中に審査が承認されると提出で失敗する（GitHub Releaseは作成済み）。この場合も次のpatch versionで公開する
+- App Storeは審査待ち・審査中なら審査を取り消し、新しいビルドに差し替えて再提出する
+- App Storeのバージョンが承認済み・公開済みなど新しいビルドを受け付けない状態なら、ビルド前の `Check App Store version can take a new build` で停止する（GitHub Releaseも変更しない）。この場合は次のpatch versionで公開する
 
 ## 10. Repository visibility
 
@@ -192,6 +202,5 @@ Rebornを参考にしつつ、aI'm Thinkingでは次を入れていません。
 
 - self-update
 - release専用repository
-- `+N` 独自再リリース採番
 
 構成を小さく保ち、release branch -> signed/notarized DMG + App Store提出 -> same-repo GitHub Releaseに限定します。
