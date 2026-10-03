@@ -44,7 +44,19 @@ swift "$RENDER" "$BG_SVG" "$WORK_DIR/bg.png" 660 400
 swift "$RENDER" "$BG_SVG" "$WORK_DIR/bg@2x.png" 1320 800
 tiffutil -cathidpicheck "$WORK_DIR/bg.png" "$WORK_DIR/bg@2x.png" -out "$STAGING/.background/background.tiff" >/dev/null 2>&1
 
-hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDRW "$RW_DMG" >/dev/null
+# On GitHub's macOS runners hdiutil create intermittently fails with "Resource busy"
+# while the same commit succeeds on another run, so retry only that error.
+for attempt in 1 2 3; do
+  if output="$(hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDRW "$RW_DMG" 2>&1)"; then
+    break
+  fi
+  if [[ "$output" != *"Resource busy"* || "$attempt" == 3 ]]; then
+    echo "$output" >&2
+    exit 1
+  fi
+  echo "hdiutil create: Resource busy, retrying ($attempt/3)" >&2
+  sleep 5
+done
 MOUNT_POINT="$(hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen | awk -F '\t' '/\/Volumes\// { print $NF }')"
 # hdiutil appends " 1" etc. when the name is taken, so ask Finder by the actual mount name.
 DISK_NAME="$(basename "$MOUNT_POINT")"
