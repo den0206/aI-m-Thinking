@@ -1,85 +1,95 @@
-# I'm Thinking
+<p align="center">
+  <img src="docs/images/icon.png" width="128" alt="aI'm Thinking">
+</p>
 
-Claude Code / Codex の活動を検知し、思考・生成・編集の強さに合わせてキーボード音を鳴らす macOS メニューバーアプリです。
+# aI'm Thinking
 
-通常どおり次のコマンドで Agent を起動できます。
+[![Core](https://github.com/den0206/I-m-Thinking/actions/workflows/core.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/core.yml)
+[![App](https://github.com/den0206/I-m-Thinking/actions/workflows/app.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/app.yml)
+[![Release](https://github.com/den0206/I-m-Thinking/actions/workflows/release.yml/badge.svg)](https://github.com/den0206/I-m-Thinking/actions/workflows/release.yml)
+
+**English** | [日本語](README_JP.md)
+
+A macOS menu bar app that detects Claude Code / Codex activity and plays keyboard sounds that follow how hard the agent is thinking, generating, and editing.
+
+Start your agents the usual way:
 
 ```bash
 claude
 codex
 ```
 
-`agent-sound claude` のようなラッパーコマンド、alias、shell hook、Claude/Codex設定変更は不要です。
+No wrapper command such as `agent-sound claude`, no alias, no shell hook, and no changes to Claude/Codex settings are needed.
 
 ## Requirements
 
-- macOS 26.0 以降
+- macOS 26.0 or later
 - Apple Silicon
-- 開発時: Xcode 27 / Swift 6.4 / Rust toolchain
+- For development: Xcode 27 / Swift 6.4 / Rust toolchain
 
-Swift toolchain はリポジトリ直下の `.swift-version` で `6.4.0` に固定しています。
+The Swift toolchain is pinned to `6.4.0` by `.swift-version` at the repository root.
 
 ## Install
 
-GitHub Releases から最新の `Im-Thinking-X.Y.Z.dmg` を取得し、`I'm Thinking.app` を `/Applications` へ移動します。
+Download the latest `Im-Thinking-X.Y.Z.dmg` from GitHub Releases and move `aI'm Thinking.app` to `/Applications`.
 
-配布は**このリポジトリ自身のGitHub Releases**を使用します。Release専用リポジトリは使いません。
+Builds are distributed from **this repository's own GitHub Releases**; there is no separate release repository.
 
-> 現在のRelease CIはApple Silicon runnerでビルドするため、配布対象もApple Siliconです。
+> The release CI builds on Apple Silicon runners, so distributed builds target Apple Silicon.
 
 ## Features
 
-- Claude Code / Codex の通常起動をpassive監視
-- THINKING / WRITING / TOOL / IDLE の状態推定
-- 活動強度に応じたキーボード音の速度変化
-- 5種類のキーボードサウンド
-- turnごとのランダムサウンド / typing速度調整
-- 活動に合わせたメニューバーのキーアニメーション
-- 音量 / Mute
+- Passive monitoring of Claude Code / Codex started the normal way
+- State estimation: THINKING / WRITING / TOOL / IDLE
+- Keyboard sound speed that follows activity intensity
+- Five keyboard sound sets
+- Random sound per turn / adjustable typing speed
+- Menu bar key animation that follows activity
+- Volume / Mute
 - Start at Login
-- sleep / wake 後の自動rescan
-- Agent設定ファイルを書き換えないfail-open設計
+- Automatic rescan after sleep / wake
+- Fail-open design that never rewrites agent configuration files
 
 ## Privacy / resource policy
 
-- `~/.claude/settings.json`、`~/.codex/config.toml`、shell rcを変更しません
-- Claude/Codex JSONLはread-onlyで開きます
-- 起動前の履歴を再生しません
-- prompt / response / reasoning / source code / tool outputをI'm Thinking側へ永続保存しません
-- JSONL全文をメモリへ保持しません
-- session / event / audio stateには上限があります
-- I'm Thinkingが停止してもClaude Code / Codexはそのまま動作します
+- Does not modify `~/.claude/settings.json`, `~/.codex/config.toml`, or shell rc files
+- Opens Claude/Codex JSONL files read-only
+- Does not replay history from before launch
+- Never persists prompts, responses, reasoning, source code, or tool output on the aI'm Thinking side
+- Does not keep whole JSONL files in memory
+- Session / event / audio state is bounded
+- Claude Code / Codex keep running even if aI'm Thinking stops
 
-詳細: [Technical Design](docs/TECHNICAL_DESIGN.md)
+Details: [Technical Design](docs/TECHNICAL_DESIGN.md)
 
 ## Development
 
 ### VS Code / Cursor
 
-`.vscode/launch.json` と `.vscode/tasks.json` を同梱しています。
+`.vscode/launch.json` and `.vscode/tasks.json` are included.
 
-1. CodeLLDB (`vadimcn.vscode-lldb`) をインストール
-2. リポジトリルートを VS Code / Cursor で開く
-3. Run and Debug で **Run I'm Thinking Debug.app** を選択
-4. **F5**
+1. Install CodeLLDB (`vadimcn.vscode-lldb`)
+2. Open the repository root in VS Code / Cursor
+3. Select **Run aI'm Thinking Debug.app** in Run and Debug
+4. Press **F5**
 
-F5実行時は自動で次を生成します。
+F5 builds the following automatically:
 
 ```text
-.build/debug/I'm Thinking Debug.app
+.build/debug/aI'm Thinking Debug.app
 ```
 
-Debug版は本番版と分離されています。
+The debug build is kept separate from the release build.
 
 | | Release | Debug |
 |---|---|---|
-| App name | I'm Thinking | I'm Thinking Debug |
+| App name | aI'm Thinking | aI'm Thinking Debug |
 | Bundle ID | `com.den0206.ImThinking` | `com.den0206.ImThinking.debug` |
 | Build | release | debug |
 
-Rust Coreを単体で追う場合は **Run Rust Core** を選択してF5します。
+To debug the Rust core on its own, select **Run Rust Core** and press F5.
 
-詳細: [Development Guide](docs/DEVELOPMENT.md)
+Details: [Development Guide](docs/DEVELOPMENT.md)
 
 ### CLI
 
@@ -91,24 +101,32 @@ swift build --package-path app
 swift test --package-path app
 
 CONFIG=debug ./scripts/build-app.sh
-open ".build/debug/I'm Thinking Debug.app"
+open ".build/debug/aI'm Thinking Debug.app"
+```
+
+### App icon
+
+The icon is generated by `app/Resources/AppIcon/generate_icon.py`. Edit the `CONFIG` section at the top of that file (colors, hand positions, zoom, ...), then regenerate `AppIcon.svg`, `app/Resources/AppIcon.icns`, and `docs/images/icon.png`:
+
+```bash
+./scripts/make-icon.sh
 ```
 
 ## Release build
 
-ローカルのrelease bundle:
+Local release bundle:
 
 ```bash
 ./scripts/build-app.sh
 ```
 
-出力:
+Output:
 
 ```text
-.build/release/I'm Thinking.app
+.build/release/aI'm Thinking.app
 ```
 
-Developer IDで署名する場合:
+To sign with a Developer ID:
 
 ```bash
 SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
@@ -117,22 +135,22 @@ SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 
 ### GitHub Release
 
-`vX.Y.Z` タグをpushすると、Release workflowが次を行います。
+Pushing a `vX.Y.Z` tag runs the Release workflow, which:
 
-1. Rust / Swift tests
-2. Developer ID署名
-3. `.app` notarization + staple
-4. DMG生成
-5. DMG署名
-6. DMG notarization + staple
-7. このリポジトリのGitHub ReleaseへDMGを添付
+1. Runs Rust / Swift tests
+2. Signs with Developer ID
+3. Notarizes and staples the `.app`
+4. Builds the DMG
+5. Signs the DMG
+6. Notarizes and staples the DMG
+7. Attaches the DMG to this repository's GitHub Release
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-必要なSecretsや証明書準備は [Release Guide](docs/RELEASE.md) を参照してください。
+See the [Release Guide](docs/RELEASE.md) for required secrets and certificate setup.
 
 ## Documentation
 
@@ -154,6 +172,7 @@ app/                    Swift / SwiftUI menu-bar app
 core/                   Rust observer/parser/activity engine
 scripts/build-app.sh    Debug/Release .app assembly + codesign
 scripts/make-dmg.sh     DMG packaging
+scripts/make-icon.sh    App icon (.icns) generation
 .vscode/                VS Code / Cursor debug configuration
 .github/workflows/      CI / Release workflows
 docs/                   Design / development / release documents
@@ -161,4 +180,4 @@ docs/                   Design / development / release documents
 
 ## Status
 
-実装進捗と未完了の実機確認項目は [docs/PROGRESS.md](docs/PROGRESS.md) に記録しています。
+Implementation progress and pending on-device checks are tracked in [docs/PROGRESS.md](docs/PROGRESS.md).
