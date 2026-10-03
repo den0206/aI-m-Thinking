@@ -74,6 +74,7 @@ cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
 chmod 755 "$MACOS/AImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
+cp -R "$ROOT/app/Resources/Ambient" "$RESOURCES/Ambient"
 cp "$ROOT/app/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 cp -R "$ROOT/app/Resources/ja.lproj" "$RESOURCES/ja.lproj"
 if [[ "$DISTRIBUTION" == "direct" ]]; then

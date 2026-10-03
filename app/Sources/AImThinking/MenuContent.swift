@@ -50,6 +50,7 @@ struct MenuContent: View {
                 set: model.setTypingSpeed
             )
 
+            ambientModule
             footer
         }
     }
@@ -292,7 +293,7 @@ struct MenuContent: View {
         value: Double,
         in range: ClosedRange<Double>,
         label: (Double) -> String,
-        set: @escaping (Double) -> Void
+        set: @escaping @MainActor @Sendable (Double) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -315,6 +316,85 @@ struct MenuContent: View {
         }
         .module()
     }
+
+    // MARK: - Ambient accents
+
+    private var ambientModule: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(
+                "Ambient Accents",
+                isOn: Binding(
+                    get: { model.ambientAccentsEnabled },
+                    set: { model.setAmbientAccentsEnabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+
+            Text("Occasional room sounds while an agent is working")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            #if DEBUG
+            DisclosureGroup("Ambient Tuning (Debug)") {
+                VStack(alignment: .leading, spacing: 8) {
+                    debugSlider(
+                        title: "Gain",
+                        value: model.ambientDebugGain,
+                        range: 0.4...1.2,
+                        format: { String(format: "%.0f%%", $0 * 100) },
+                        set: model.setAmbientDebugGain
+                    )
+                    debugSlider(
+                        title: "Reverb",
+                        value: model.ambientDebugReverb,
+                        range: 0...30,
+                        format: { String(format: "%.0f%%", $0) },
+                        set: model.setAmbientDebugReverb
+                    )
+                    debugSlider(
+                        title: "Interval",
+                        value: model.ambientDebugIntervalScale,
+                        range: 0.01...1.0,
+                        format: { String(format: "×%.2f", $0) },
+                        set: model.setAmbientDebugIntervalScale
+                    )
+                    HStack(spacing: 6) {
+                        Button("Rain") { model.previewAmbient(.rain) }
+                        Button("Thunder") { model.previewAmbient(.thunder) }
+                        Button("Page") { model.previewAmbient(.pageTurn) }
+                        Button("Writing") { model.previewAmbient(.writing) }
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.top, 4)
+            }
+            #endif
+        }
+        .module()
+    }
+
+    #if DEBUG
+    private func debugSlider(
+        title: String,
+        value: Double,
+        range: ClosedRange<Double>,
+        format: (Double) -> String,
+        set: @escaping (Double) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title)
+                    .font(.caption)
+                Spacer()
+                Text(format(value))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: Binding(get: { value }, set: set), in: range)
+        }
+    }
+    #endif
 
     // MARK: - Footer
 

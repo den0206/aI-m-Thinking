@@ -6,6 +6,11 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ## [Unreleased]
 
+### Added
+
+- Optional Ambient Accents mode (off by default) with rare activity-aware rain, distant thunder, page-turn, and writing sounds.
+- Debug-only Ambient tuning controls for gain, reverb, interval scaling, and one-shot previews.
+
 ### Changed
 
 - Direct builds can select custom Claude Code / Codex session folders from Agent Folders and reset them to the defaults.

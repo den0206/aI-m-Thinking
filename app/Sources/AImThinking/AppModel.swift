@@ -24,7 +24,14 @@ final class AppModel: ObservableObject {
     static let typingSpeedRange = 0.3...2.1
     static let defaultTypingSpeed = 1.2
     @Published private(set) var muted: Bool
+    @Published private(set) var ambientAccentsEnabled: Bool
     static let defaultVolume = 0.55
+
+    #if DEBUG
+    @Published private(set) var ambientDebugGain = AmbientAudioEngine.defaultGain
+    @Published private(set) var ambientDebugReverb = Double(AmbientAudioEngine.defaultReverb)
+    @Published private(set) var ambientDebugIntervalScale = 1.0
+    #endif
 
     /// Slider labels read the default as 50% / ×1.0, scaled linearly on each side of it.
     static func volumeLabel(_ value: Double) -> String {
@@ -51,6 +58,7 @@ final class AppModel: ObservableObject {
     private let loginItemSetter: (Bool) throws -> Void
     private let audio: KeyboardAudioEngine
     private let scheduler: TypingScheduler
+    private let ambientScheduler: AmbientAccentScheduler
     private let defaults: UserDefaults
     private var activities: [UInt32: ActivityState] = [:]
     private var wakeTask: Task<Void, Never>?
@@ -86,6 +94,7 @@ final class AppModel: ObservableObject {
         volume = initialVolume
         typingSpeed = initialSpeed
         muted = initialMuted
+        ambientAccentsEnabled = defaults.bool(forKey: "ambientAccentsEnabled")
         startAtLogin = LoginItemManager.isEnabled
         onboardingCompleted = defaults.bool(forKey: "onboardingCompleted")
 
@@ -96,6 +105,11 @@ final class AppModel: ObservableObject {
         playingPack = audio.pack
         scheduler = TypingScheduler(audio: audio)
         scheduler.speedScale = initialSpeed
+        let ambientAudio = AmbientAudioEngine()
+        ambientAudio.volume = initialVolume
+        ambientAudio.muted = initialMuted
+        ambientScheduler = AmbientAccentScheduler(audio: ambientAudio)
+        ambientScheduler.isEnabled = ambientAccentsEnabled
         keyPress.speedScale = initialSpeed
 
         refreshAuthorizationState()
@@ -229,6 +243,7 @@ final class AppModel: ObservableObject {
         activities.removeAll(keepingCapacity: false)
         scheduler.stop()
         audio.stop()
+        ambientScheduler.stop()
         keyPress.update(active: false, intensity: 0)
         claudeState = "Waiting"
         codexState = "Waiting"
@@ -261,6 +276,7 @@ final class AppModel: ObservableObject {
         volume = value
         defaults.set(value, forKey: "volume")
         audio.volume = value
+        ambientScheduler.volume = value
         // The slider's bottom is mute; dragging up again unmutes.
         if (value == 0) != muted {
             setMuted(value == 0)
@@ -273,16 +289,46 @@ final class AppModel: ObservableObject {
             volume = Self.defaultVolume
             defaults.set(volume, forKey: "volume")
             audio.volume = volume
+            ambientScheduler.volume = volume
         }
         muted = newValue
         defaults.set(newValue, forKey: "muted")
         audio.muted = newValue
+        ambientScheduler.muted = newValue
         if newValue {
             scheduler.stop()
             audio.stop()
         }
         updateGlobalAudio()
     }
+
+    func setAmbientAccentsEnabled(_ enabled: Bool) {
+        ambientAccentsEnabled = enabled
+        defaults.set(enabled, forKey: "ambientAccentsEnabled")
+        ambientScheduler.isEnabled = enabled
+        updateGlobalAudio()
+    }
+
+    #if DEBUG
+    func setAmbientDebugGain(_ value: Double) {
+        ambientDebugGain = value.clamped(to: 0.4...1.2)
+        ambientScheduler.setDebugGain(ambientDebugGain)
+    }
+
+    func setAmbientDebugReverb(_ value: Double) {
+        ambientDebugReverb = value.clamped(to: 0...30)
+        ambientScheduler.setDebugReverb(ambientDebugReverb)
+    }
+
+    func setAmbientDebugIntervalScale(_ value: Double) {
+        ambientDebugIntervalScale = value.clamped(to: 0.01...1.0)
+        ambientScheduler.intervalScale = ambientDebugIntervalScale
+    }
+
+    func previewAmbient(_ kind: AmbientAccentKind) {
+        ambientScheduler.preview(kind)
+    }
+    #endif
 
     func setStartAtLogin(_ enabled: Bool) {
         do {
@@ -421,6 +467,11 @@ final class AppModel: ObservableObject {
     private func updateGlobalAudio() {
         let monitored = activities.filter { !pausedSessions.contains($0.key) }.map(\.value)
         let busy = monitored.filter { $0.phase != "idle" && $0.intensity >= 0.06 }
+        let ambientActivity = busy.max(by: { $0.intensity < $1.intensity })
+        ambientScheduler.update(
+            phase: ambientActivity?.phase,
+            toolClass: ambientActivity?.toolClass
+        )
         // A still keycap printed "muted" reads as silenced.
         keyPress.update(active: !muted && !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
 

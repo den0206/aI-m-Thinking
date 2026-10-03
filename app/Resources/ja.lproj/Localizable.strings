@@ -84,3 +84,15 @@
 "Choose a folder to continue" = "続けるにはフォルダを選んでください";
 "Done" = "完了";
 "Last activity detected" = "最後に動作を検知した時刻";
+
+/* Ambient accents */
+"Ambient Accents" = "環境音アクセント";
+"Occasional room sounds while an agent is working" = "エージェントの作業中に、ごくまれに環境音を鳴らします";
+"Ambient Tuning (Debug)" = "環境音調整（デバッグ）";
+"Gain" = "音量係数";
+"Reverb" = "リバーブ";
+"Interval" = "発生間隔";
+"Rain" = "雨";
+"Thunder" = "遠雷";
+"Page" = "ページ";
+"Writing" = "筆記";
