@@ -130,6 +130,8 @@ bash scripts/make-dmg.sh \
   "aI'm Thinking 0.1.0"
 ```
 
+DMG ウィンドウの背景は `app/Resources/DmgBackground.svg` から生成します。アイコン位置を記録する `.DS_Store` は Finder に書かせるため、初回実行時に Finder の自動操作の許可を求められます。
+
 ## 8. Verification
 
 App signature:
