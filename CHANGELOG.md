@@ -13,6 +13,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - The DMG window has a background that guides dragging the app to Applications.
 - Agents whose transcripts stop producing recognizable records (for example after a Claude Code / Codex update changes the format) are flagged as "Unsupported format" in the menu, and the diagnostic log records each session's agent CLI version.
 - Copy Diagnostic Log shares bounded, in-memory monitoring metadata without transcript content or file paths.
+- In Random mode the Sound Pack tile shows the pack currently playing.
 - Recorded keyboard sounds, random sound selection per turn, a speed slider, and an animated menu-bar keycap.
 - Passive Claude Code / Codex activity monitoring without wrapper commands.
 - Keyboard sound packs with activity-sensitive cadence.

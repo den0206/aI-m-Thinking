@@ -182,8 +182,8 @@ struct MenuContent: View {
             tileLabel(
                 systemImage: model.soundPack == nil ? "shuffle" : "keyboard",
                 highlighted: false,
-                title: model.soundPack?.displayName ?? "Random",
-                subtitle: "Sound Pack"
+                title: model.playingPack.displayName,
+                subtitle: model.soundPack == nil ? "Random" : "Sound Pack"
             )
         }
         .menuStyle(.button)

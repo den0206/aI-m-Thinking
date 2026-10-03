@@ -12,6 +12,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var unrecognizedAgents: Set<AgentService> = []
     /// nil means Random: a new pack is drawn whenever an agent starts a turn.
     @Published private(set) var soundPack: SoundPackID?
+    /// The pack actually sounding, so Random can show what it drew.
+    @Published private(set) var playingPack: SoundPackID
     @Published private(set) var volume: Double
     /// Typing speed multiplier; the slider's midpoint is the default.
     @Published private(set) var typingSpeed: Double
@@ -74,6 +76,7 @@ final class AppModel: ObservableObject {
         audio.volume = initialVolume
         audio.muted = initialMuted
         self.audio = audio
+        playingPack = audio.pack
         scheduler = TypingScheduler(audio: audio)
         scheduler.speedScale = initialSpeed
         keyPress.speedScale = initialSpeed
@@ -192,6 +195,7 @@ final class AppModel: ObservableObject {
         soundPack = pack
         defaults.set(pack?.rawValue ?? "random", forKey: "soundPack")
         audio.setPack(pack ?? Self.randomPack(excluding: [audio.pack]))
+        playingPack = audio.pack
         audio.preview()
     }
 
@@ -324,6 +328,7 @@ final class AppModel: ObservableObject {
         // Only the strongest session is heard, in its own pack.
         if strongest.phase != "idle" {
             audio.setPack(soundPack ?? strongest.pack)
+            if playingPack != audio.pack { playingPack = audio.pack }
         }
         scheduler.update(
             phase: strongest.phase,
