@@ -136,8 +136,8 @@ jobs:
           security import "$RUNNER_TEMP/mas.p12" -k "$KEYCHAIN" -P "$MAS_CERT_PASSWORD" -A
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          # productbuild otherwise also searches the locked login keychain and waits for an unlock prompt.
-          security default-keychain -d user -s "$KEYCHAIN"
+          # productbuild gets this keychain explicitly instead of searching the locked login keychain.
+          # Do not make it the default keychain: hdiutil create failed with "Resource busy" when it was.
           echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
           echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
 
@@ -168,6 +168,7 @@ jobs:
           codesign --verify --strict --verbose=2 "$APP"
 
       - name: Create DMG
+        timeout-minutes: 5
         run: |
           bash scripts/make-dmg.sh \
             ".build/release/aI'm Thinking.app" \
@@ -229,7 +230,20 @@ jobs:
           SIGN_IDENTITY="Apple Distribution: Yuuki Sakai (4KJFNVZ8R6)" \
           INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Yuuki Sakai (4KJFNVZ8R6)" \
           PROVISIONING_PROFILE="$RUNNER_TEMP/mas.provisionprofile" \
-            bash scripts/build-app.sh
+            bash scripts/build-app.sh &
+          BUILD=$!
+          # productbuild --sign has hung here with no output. If it does again, record where it
+          # waits (Apple DTS suggests spindump) and whether a keychain prompt (SecurityAgent) is up.
+          for _ in $(seq 120); do kill -0 "$BUILD" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$BUILD" 2>/dev/null; then
+            echo "::error::App Store package build did not finish in 2 minutes"
+            pgrep -lf 'SecurityAgent|productbuild|productsign' || true
+            sudo spindump productbuild 5 -stdout 2>&1 | head -300 || true
+            pkill -x productbuild || true
+            kill "$BUILD" || true
+            exit 1
+          fi
+          wait "$BUILD"
 
       # --wait covers App Store Connect processing, which usually takes 5-30 minutes.
       - name: Upload App Store package
