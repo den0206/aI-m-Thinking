@@ -179,6 +179,7 @@ core/                   Rust observer/parser/activity engine
 scripts/build-app.sh    Debug/Release .app assembly + codesign
 scripts/make-dmg.sh     DMG packaging
 scripts/make-icon.sh    App icon (.icns) generation
+scripts/clean.sh        Remove build outputs and test leftovers
 .vscode/                VS Code / Cursor debug configuration
 .github/workflows/      CI / Release workflows
 docs/                   Design / development / release documents
