@@ -2,6 +2,8 @@
 
 This document is the source of truth for the Mac App Store path. The direct Developer ID / DMG distribution path remains separate and must continue to work.
 
+Submission steps and the remaining checklist (Japanese): [APP_STORE_SUBMISSION_JP.md](APP_STORE_SUBMISSION_JP.md).
+
 ## Current position
 
 The Mac App Store path is technically realistic, but it is not yet submission-ready.
