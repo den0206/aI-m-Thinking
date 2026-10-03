@@ -39,7 +39,8 @@ let maxKeysPerSecond = 30.0
 Overflow must drop non-critical observer/audio work rather than backpressure Claude or Codex.
 
 - The speed multiplier is included before the 30 keys/s cap, and jitter never shortens a playback interval below 1/30 second.
-- A reused voice drops its previous buffer; playback does not accumulate an audio backlog. Pack changes retain decoded PCM only for the current pack.
+- A reused voice drops its previous buffer; playback does not accumulate an audio backlog. Pack changes retain decoded PCM for at most the current and previous packs.
+- After the final preview strike, the engine stops once the longest preview buffer's duration plus 50 ms has elapsed, unless the activity scheduler is running. Mute, stop, and a new preview cancel the pending preview task.
 - Zero-intensity or IDLE sessions do not keep the keycap animation running. Mute silences audio and stops the animation; monitor stop/failure clears both.
 
 ## Startup
@@ -64,7 +65,7 @@ Historical transcript replay is forbidden by default.
 
 - Queues are bounded.
 - Session bookkeeping is bounded.
-- Only the active sound pack needs decoded PCM.
+- At most the current and previous sound packs retain decoded PCM.
 - JSONL record size must not cause proportional retained-memory growth.
 - Large ignored fields are streamed/skipped.
 

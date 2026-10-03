@@ -224,7 +224,7 @@ final class AppModel: ObservableObject {
         defaults.set(pack?.rawValue ?? "random", forKey: "soundPack")
         audio.setPack(pack ?? Self.randomPack(excluding: [audio.pack]))
         playingPack = audio.pack
-        audio.preview()
+        audio.preview { [weak self] in self?.scheduler.isRunning == true }
     }
 
     private static func randomPack(excluding used: [SoundPackID]) -> SoundPackID {

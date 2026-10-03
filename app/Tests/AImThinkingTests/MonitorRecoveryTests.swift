@@ -91,6 +91,33 @@ func observerFailureClearsOnlyAffectedActivityAndExplainsRecovery() throws {
     model.stopCore()
 }
 
+@Test @MainActor
+func previewStopsEngineWhenIdleButLeavesActivityPlaying() async throws {
+    let sounds = URL(filePath: #filePath).deletingLastPathComponent()
+        .appending(path: "../../Resources/Sounds").standardized
+    let audio = KeyboardAudioEngine(pack: .hermes, soundsDirectory: sounds)
+    audio.volume = 0
+    let scheduler = TypingScheduler(audio: audio)
+    defer { scheduler.stop(); audio.stop() }
+    audio.preview()
+    #expect(audio.isRunning)
+    try await Task.sleep(for: .seconds(1))
+    #expect(!audio.isRunning)
+
+    audio.preview { scheduler.isRunning }
+    try await Task.sleep(for: .milliseconds(100))
+    scheduler.update(phase: "writing", intensity: 0.5, toolClass: nil)
+    try await Task.sleep(for: .seconds(1))
+    #expect(scheduler.isRunning)
+    #expect(audio.isRunning)
+    scheduler.stop()
+    audio.stop()
+    audio.muted = true
+    audio.preview()
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(!audio.isRunning)
+}
+
 private func makeCore(_ body: String) throws -> URL {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

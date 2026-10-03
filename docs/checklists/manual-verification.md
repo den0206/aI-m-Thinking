@@ -34,15 +34,17 @@
 
 ## D. Audio
 
-- [ ] 5種類のsound packを切り替えられる
+- [ ] 6種類のsound packを切り替えられる
 - [ ] sound packを選ぶとpreviewが鳴り、Mute中は鳴らない
 - [ ] Randomではturnごとにsound packが変わる
-- [ ] Speedを上げても再生が15 keys/sを超えない
+- [ ] Speedを上げても再生が30 keys/sを超えない
 - [ ] volume sliderが反映される
 - [ ] Muteで即座に停止する
 - [ ] intensityが低いと遅く、高いと速くなる
 - [ ] THINKINGとWRITINGで過剰な連打にならない
 - [ ] 長時間idleでAVAudioEngineが不要に動き続けない
+- [ ] Agentが待機中の試聴は、最後の音が終わるとAVAudioEngineも停止する
+- [ ] 試聴中にAgentの活動が始まっても、試聴の終了処理で活動音が止まらない
 
 ## E. Multiple sessions
 

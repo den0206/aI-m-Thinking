@@ -12,6 +12,8 @@ final class KeyboardAudioEngine {
     private var previous: (pack: SoundPackID, bank: SoundBank?)?
     private var voiceIndex = 0
     private var previewTask: Task<Void, Never>?
+    private let soundsDirectory: URL?
+    var isRunning: Bool { engine.isRunning }
 
     var volume: Double = 0.55 {
         didSet {
@@ -21,8 +23,9 @@ final class KeyboardAudioEngine {
 
     var muted = false
 
-    init(pack: SoundPackID) {
+    init(pack: SoundPackID, soundsDirectory: URL? = SoundSamples.bundledDirectory) {
         self.pack = pack
+        self.soundsDirectory = soundsDirectory
         voices = (0..<4).map { _ in AVAudioPlayerNode() }
 
         let format = AVAudioFormat(
@@ -36,7 +39,7 @@ final class KeyboardAudioEngine {
         }
 
         engine.mainMixerNode.outputVolume = Float(volume)
-        bank = SoundSamples.makeBank(for: pack)
+        bank = SoundSamples.makeBank(for: pack, directory: soundsDirectory)
         engine.prepare()
     }
 
@@ -49,7 +52,7 @@ final class KeyboardAudioEngine {
         for voice in voices {
             voice.stop()
         }
-        bank = previous?.pack == pack ? previous?.bank : SoundSamples.makeBank(for: pack)
+        bank = previous?.pack == pack ? previous?.bank : SoundSamples.makeBank(for: pack, directory: soundsDirectory)
         previous = outgoing
     }
 
@@ -81,7 +84,7 @@ final class KeyboardAudioEngine {
         }
     }
 
-    func preview() {
+    func preview(isActivityPlaying: @escaping @MainActor () -> Bool = { false }) {
         previewTask?.cancel()
         play(.key)
 
@@ -93,7 +96,14 @@ final class KeyboardAudioEngine {
             try? await Task.sleep(for: .milliseconds(70))
             guard !Task.isCancelled else { return }
             self.play(.enter)
+            let buffers = (self.bank?.keys ?? []) + (self.bank?.enters ?? [])
+            let tail = buffers.map {
+                Double($0.frameLength) / $0.format.sampleRate
+            }.max() ?? 0
+            try? await Task.sleep(for: .seconds(tail + 0.05))
+            guard !Task.isCancelled else { return }
             self.previewTask = nil
+            if !isActivityPlaying() { self.stop() }
         }
     }
 

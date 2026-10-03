@@ -10,6 +10,7 @@ final class TypingScheduler {
     private var toolClass: String?
     private var generation: UInt64 = 0
     private var scheduled = false
+    var isRunning: Bool { scheduled }
     /// Keys left in the current "word" before a space.
     private var wordRemaining = 0
 
