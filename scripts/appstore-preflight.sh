@@ -31,9 +31,10 @@ export ASC_KEY_P8
 source "$ROOT/scripts/asc-lib.sh"
 
 # 対象バージョンがまだなければ、CI が作るときに掲載情報を引き継ぐ最新のバージョンを見る。
-VERSIONS="$(asc GET "/apps/$APP_ID/appStoreVersions?filter%5Bplatform%5D=MAC_OS&sort=-createdDate&limit=200")"
+VERSIONS="$(asc GET "/apps/$APP_ID/appStoreVersions?filter%5Bplatform%5D=MAC_OS&limit=200")"
 VERSION_ID="$(jq -r --arg v "$VERSION" '[.data[] | select(.attributes.versionString == $v) | .id][0] // empty' <<<"$VERSIONS")"
-SOURCE_ID="${VERSION_ID:-$(jq -r '.data[0].id // empty' <<<"$VERSIONS")}"
+# この一覧は sort を受け付けないので、作成日時で最新を選ぶ。
+SOURCE_ID="${VERSION_ID:-$(jq -r '.data | max_by(.attributes.createdDate) | .id // empty' <<<"$VERSIONS")}"
 SOURCE_NAME="$(jq -r --arg id "$SOURCE_ID" '.data[] | select(.id == $id) | .attributes.versionString' <<<"$VERSIONS")"
 APP_INFO="$(asc GET "/apps/$APP_ID/appInfos?include=primaryCategory,appInfoLocalizations,ageRatingDeclaration")"
 LOCALIZATIONS="$(asc GET "/appStoreVersions/$SOURCE_ID/appStoreVersionLocalizations")"
