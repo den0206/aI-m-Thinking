@@ -11,6 +11,9 @@ final class AppModel: ObservableObject {
     /// after a CLI update changed the format. Cleared when that agent shows
     /// activity again or monitoring restarts.
     @Published private(set) var unrecognizedAgents: Set<AgentService> = []
+    /// When each agent last showed activity, so a silent menu can tell
+    /// "nothing is happening" from "the monitor sees nothing".
+    @Published private(set) var lastDetected: [AgentService: Date] = [:]
     /// nil means Random: a new pack is drawn whenever an agent starts a turn.
     @Published private(set) var soundPack: SoundPackID?
     /// The pack actually sounding, so Random can show what it drew.
@@ -362,6 +365,7 @@ final class AppModel: ObservableObject {
         }
         if let service = AgentService(rawValue: agent), phase != "idle" {
             unrecognizedAgents.remove(service)
+            lastDetected[service] = .now
         }
 
         guard !pausedSessions.contains(session) else { return }

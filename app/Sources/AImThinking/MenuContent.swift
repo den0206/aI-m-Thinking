@@ -136,8 +136,17 @@ struct MenuContent: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .help("This \(service.displayName) version writes transcripts this app cannot read yet. Update aI'm Thinking or share the diagnostic log.")
+            } else if !active, let last = model.lastDetected[service] {
+                TimelineView(.everyMinute) { _ in
+                    Text(verbatim: "\(localizedState) · \(last.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .help("Last activity detected")
             } else {
-                Text(active ? "\(state)…" : state)
+                Text(active ? "\(localizedState)…" : localizedState)
                     .font(.caption)
                     .foregroundStyle(active ? AnyShapeStyle(.white.opacity(0.9)) : AnyShapeStyle(.secondary))
             }

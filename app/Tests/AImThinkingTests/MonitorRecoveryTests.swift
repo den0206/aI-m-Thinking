@@ -73,6 +73,7 @@ func observerFailureClearsOnlyAffectedActivityAndExplainsRecovery() throws {
     #expect(!model.claudeFolderAuthorized)
     #expect(model.claudeState == "Idle")
     #expect(model.codexState == "Thinking")
+    #expect(model.lastDetected[.claude] != nil) // Kept so the menu can show when it last sounded.
     try deliver(#"{"v":1,"type":"observer_status","agent":"claude","status":"monitoring"}"#)
     #expect(model.observerProblem(for: .claude) == nil)
     #expect(model.claudeFolderAuthorized)
