@@ -52,8 +52,8 @@ App Storeへの提出を伴うので、通常はClaude Code / Codexの `appstore
 12. DMG自体をDeveloper ID署名
 13. DMGをnotarize + staple
 14. codesign / stapler / Gatekeeper確認
-15. GitHub Release作成 + DMG添付（ノートはCHANGELOGの切り出した節。同じコミットのReleaseがあれば作らない）
-16. Mac App Store用 `.pkg` をビルドし、API keyでApp Store Connectへアップロード
+15. Mac App Store用 `.pkg` をビルド・署名（失敗してもGitHub Releaseが残らないよう、Release作成の前に行う）
+16. GitHub Release作成 + DMG添付（ノートはCHANGELOGの切り出した節。同じコミットのReleaseがあれば作らない）。`.pkg` をAPI keyでApp Store Connectへアップロード
 17. `scripts/appstore-release.sh` でApp Storeバージョンを作成・審査待ち/審査中なら取り消し・ビルドを紐付け・「新機能」を入力し、審査へ提出
 18. 切り出したCHANGELOGを `main` へコミット
 
