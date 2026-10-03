@@ -10,6 +10,7 @@ pub struct SessionState {
     awaiting_model: bool,
     phase: AgentState,
     active_tools: HashMap<ToolKey, ToolClass>,
+    ended: bool,
 }
 
 impl Default for SessionState {
@@ -19,6 +20,7 @@ impl Default for SessionState {
             awaiting_model: false,
             phase: AgentState::Idle,
             active_tools: HashMap::new(),
+            ended: false,
         }
     }
 }
@@ -49,9 +51,23 @@ impl SessionState {
             .any(|class| *class == ToolClass::Mutation)
     }
 
+    pub fn accepts(&self, event: &NormalizedEvent) -> bool {
+        !self.ended || matches!(event, NormalizedEvent::TurnStart | NormalizedEvent::TurnEnd)
+    }
+
+    /// A timeout is not an authoritative completion signal. Fresh evidence
+    /// from the same turn must still be accepted when the agent resumes.
+    pub(super) fn mark_stale(&mut self) {
+        self.ended = false;
+    }
+
     pub fn apply(&mut self, event: &NormalizedEvent) {
+        if !self.accepts(event) {
+            return;
+        }
         match event {
             NormalizedEvent::TurnStart => {
+                self.ended = false;
                 self.turn_open = true;
                 self.awaiting_model = true;
                 self.active_tools.clear();
@@ -95,6 +111,7 @@ impl SessionState {
                 };
             }
             NormalizedEvent::TurnEnd => {
+                self.ended = true;
                 self.turn_open = false;
                 self.awaiting_model = false;
                 self.active_tools.clear();

@@ -125,7 +125,7 @@ Hardening and packaging added:
 - re-enabling an observer performs a rescan
 - parallel tool state is tested at its 64-entry bound
 - an 8 MiB ignored JSON payload is streamed directly into the parser test
-- subprocess integration test covers Core hello/configure/ready/ping/shutdown lifecycle
+- subprocess integration test covers Core hello/configure/ready/shutdown lifecycle
 - wake-from-sleep triggers an agent rescan
 - Start at Login uses `SMAppService.mainApp`, not shell or LaunchAgent modifications
 - macOS app bundle script packages Swift UI and Rust Core together

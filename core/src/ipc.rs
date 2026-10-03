@@ -53,17 +53,8 @@ pub enum ClientCommand {
         #[serde(default)]
         roots: AgentRoots,
     },
-    SetAgentEnabled {
-        v: u8,
-        agent: AgentKind,
-        enabled: bool,
-    },
     Rescan {
         v: u8,
-    },
-    Ping {
-        v: u8,
-        id: u64,
     },
     Shutdown {
         v: u8,
@@ -73,11 +64,7 @@ pub enum ClientCommand {
 impl ClientCommand {
     pub fn version(&self) -> u8 {
         match self {
-            Self::Configure { v, .. }
-            | Self::SetAgentEnabled { v, .. }
-            | Self::Rescan { v }
-            | Self::Ping { v, .. }
-            | Self::Shutdown { v } => *v,
+            Self::Configure { v, .. } | Self::Rescan { v } | Self::Shutdown { v } => *v,
         }
     }
 }
@@ -89,18 +76,10 @@ enum ServerMessage<'a> {
         v: u8,
         seq: u64,
         core_version: &'static str,
-        protocol_min: u8,
-        protocol_max: u8,
-        capabilities: [&'static str; 3],
     },
     Ready {
         v: u8,
         seq: u64,
-    },
-    Pong {
-        v: u8,
-        seq: u64,
-        id: u64,
     },
     ObserverStatus {
         v: u8,
@@ -127,10 +106,7 @@ enum ServerMessage<'a> {
         agent: &'static str,
         phase: &'static str,
         intensity: f32,
-        confidence: &'static str,
         tool_class: Option<&'static str>,
-        basis: &'static str,
-        at_ms: u64,
     },
     Error {
         v: u8,
@@ -158,9 +134,6 @@ impl<W: Write> ServerWriter<W> {
             v: PROTOCOL_VERSION,
             seq,
             core_version: env!("CARGO_PKG_VERSION"),
-            protocol_min: PROTOCOL_VERSION,
-            protocol_max: PROTOCOL_VERSION,
-            capabilities: ["claude-passive", "codex-legacy", "codex-paginated"],
         })
     }
 
@@ -169,15 +142,6 @@ impl<W: Write> ServerWriter<W> {
         self.write(ServerMessage::Ready {
             v: PROTOCOL_VERSION,
             seq,
-        })
-    }
-
-    pub fn pong(&mut self, id: u64) -> io::Result<()> {
-        let seq = self.next_seq();
-        self.write(ServerMessage::Pong {
-            v: PROTOCOL_VERSION,
-            seq,
-            id,
         })
     }
 
@@ -217,7 +181,6 @@ impl<W: Write> ServerWriter<W> {
         agent: AgentKind,
         sample: ActivitySample,
         tool_class: Option<ToolClass>,
-        at_ms: u64,
     ) -> io::Result<()> {
         let seq = self.next_seq();
         self.write(ServerMessage::Activity {
@@ -227,10 +190,7 @@ impl<W: Write> ServerWriter<W> {
             agent: agent.as_str(),
             phase: sample.phase.as_str(),
             intensity: sample.intensity,
-            confidence: sample.confidence.as_str(),
             tool_class: tool_class.map(ToolClass::as_str),
-            basis: sample.basis.as_str(),
-            at_ms,
         })
     }
 
@@ -319,8 +279,7 @@ mod tests {
 
     #[test]
     fn command_version_is_explicit() {
-        let command: ClientCommand =
-            serde_json::from_slice(br#"{"v":1,"type":"ping","id":7}"#).unwrap();
+        let command: ClientCommand = serde_json::from_slice(br#"{"v":1,"type":"rescan"}"#).unwrap();
         assert_eq!(command.version(), PROTOCOL_VERSION);
     }
 
@@ -335,11 +294,8 @@ mod tests {
                 ActivitySample {
                     phase: crate::events::AgentState::Thinking,
                     intensity: 0.5,
-                    confidence: crate::events::Confidence::High,
-                    basis: crate::activity::ActivityBasis::ReasoningUsage,
                 },
                 None,
-                120,
             )
             .unwrap();
 

@@ -12,11 +12,11 @@ fn reducer_handles_parallel_tools() {
     let mut state = SessionState::default();
     state.apply(&NormalizedEvent::TurnStart);
     state.apply(&NormalizedEvent::ToolStart {
-        id: ToolKey::new("a"),
+        id: ToolKey::from("a"),
         class: ToolClass::Read,
     });
     state.apply(&NormalizedEvent::ToolStart {
-        id: ToolKey::new("b"),
+        id: ToolKey::from("b"),
         class: ToolClass::Shell,
     });
 
@@ -24,12 +24,12 @@ fn reducer_handles_parallel_tools() {
     assert_eq!(state.active_tool_count(), 2);
 
     state.apply(&NormalizedEvent::ToolEnd {
-        id: Some(ToolKey::new("a")),
+        id: Some(ToolKey::from("a")),
     });
     assert_eq!(state.phase(), AgentState::Tool);
 
     state.apply(&NormalizedEvent::ToolEnd {
-        id: Some(ToolKey::new("b")),
+        id: Some(ToolKey::from("b")),
     });
     assert_eq!(state.phase(), AgentState::Thinking);
 }
@@ -41,7 +41,7 @@ fn reducer_bounds_parallel_tool_state() {
 
     for index in 0..100 {
         state.apply(&NormalizedEvent::ToolStart {
-            id: ToolKey::new(format!("tool-{index}")),
+            id: ToolKey::from(format!("tool-{index}")),
             class: ToolClass::Read,
         });
     }
@@ -132,7 +132,7 @@ fn shell_tool_decays_to_silence() {
     engine.apply(&NormalizedEvent::TurnStart, ms(0));
     engine.apply(
         &NormalizedEvent::ToolStart {
-            id: ToolKey::new("shell"),
+            id: ToolKey::from("shell"),
             class: ToolClass::Shell,
         },
         ms(100),
@@ -149,7 +149,7 @@ fn mutation_tool_gets_a_short_impulse() {
     let mut engine = ActivityEngine::new(ms(0));
     engine.apply(
         &NormalizedEvent::ToolStart {
-            id: ToolKey::new("edit"),
+            id: ToolKey::from("edit"),
             class: ToolClass::Mutation,
         },
         ms(100),
@@ -205,7 +205,7 @@ fn realtime_usage_score_decays_after_updates_stop() {
     // A long shell command runs; no further usage arrives.
     engine.apply(
         &NormalizedEvent::ToolStart {
-            id: ToolKey::new("build"),
+            id: ToolKey::from("build"),
             class: ToolClass::Shell,
         },
         ms(2600),
@@ -224,7 +224,7 @@ fn stale_turn_expires_to_idle() {
     engine.apply(&NormalizedEvent::TurnStart, ms(0));
     engine.apply(
         &NormalizedEvent::ToolStart {
-            id: ToolKey::new("long"),
+            id: ToolKey::from("long"),
             class: ToolClass::Shell,
         },
         ms(100),
@@ -237,6 +237,18 @@ fn stale_turn_expires_to_idle() {
     assert_eq!(engine.state().phase(), AgentState::Idle);
     assert_eq!(engine.state().active_tool_count(), 0);
     assert!(!engine.expire_stale_turn(ms(200_000), ms(60_000)));
+
+    // Expiration inferred from silence must not discard fresh live evidence.
+    engine.apply(
+        &NormalizedEvent::ThinkingPulse {
+            units: 1,
+            confidence: Confidence::High,
+        },
+        ms(200_100),
+    );
+    let resumed = engine.sample(ms(200_200));
+    assert_eq!(resumed.phase, AgentState::Thinking);
+    assert!(resumed.intensity > 0.06);
 }
 
 #[test]
@@ -259,7 +271,7 @@ fn pending_activity_resumes_after_tools_return_and_stops_at_turn_end() {
     engine.apply(&NormalizedEvent::TurnStart, ms(0));
     engine.apply(
         &NormalizedEvent::ToolStart {
-            id: ToolKey::new("a"),
+            id: ToolKey::from("a"),
             class: ToolClass::Shell,
         },
         ms(1_000),
@@ -268,7 +280,7 @@ fn pending_activity_resumes_after_tools_return_and_stops_at_turn_end() {
 
     engine.apply(
         &NormalizedEvent::ToolEnd {
-            id: Some(ToolKey::new("a")),
+            id: Some(ToolKey::from("a")),
         },
         ms(20_000),
     );
@@ -311,4 +323,59 @@ fn history_updates_state_without_sound() {
     assert_eq!(engine.state().phase(), AgentState::Thinking);
     assert!(!engine.state().awaiting_model());
     assert_eq!(engine.sample(ms(100)).intensity, 0.0);
+}
+
+#[test]
+fn codex_pending_output_survives_long_reasoning_but_remains_bounded() {
+    let mut engine = ActivityEngine::with_pending_timeout(ms(0), ms(600_000));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+    for now in (100..540_000).step_by(100) {
+        assert!(engine.sample(ms(now)).intensity > 0.06);
+    }
+    assert!(!engine.expire_stale_turn(ms(599_900), ms(600_000)));
+    assert!(engine.expire_stale_turn(ms(600_000), ms(600_000)));
+    assert_eq!(engine.sample(ms(600_000)).intensity, 0.0);
+}
+
+#[test]
+fn terminal_turn_ignores_late_content_tools_and_usage_until_next_start() {
+    let mut engine = ActivityEngine::new(ms(0));
+    engine.apply(&NormalizedEvent::TurnStart, ms(0));
+    engine.apply(
+        &NormalizedEvent::WritingPulse {
+            units: 8,
+            confidence: Confidence::High,
+        },
+        ms(100),
+    );
+    assert!(engine.sample(ms(200)).intensity > 0.0);
+    engine.apply(&NormalizedEvent::TurnEnd, ms(300));
+    for event in [
+        NormalizedEvent::WritingPulse {
+            units: 1,
+            confidence: Confidence::High,
+        },
+        NormalizedEvent::ThinkingPulse {
+            units: 1,
+            confidence: Confidence::High,
+        },
+        NormalizedEvent::ToolStart {
+            id: "late".into(),
+            class: ToolClass::Mutation,
+        },
+        NormalizedEvent::ToolEnd {
+            id: Some("late".into()),
+        },
+        NormalizedEvent::UsagePulse {
+            output_tokens: 30,
+            reasoning_tokens: 30,
+        },
+    ] {
+        engine.apply(&event, ms(400));
+        let sample = engine.sample(ms(500));
+        assert_eq!(sample.phase, AgentState::Idle);
+        assert_eq!(sample.intensity, 0.0);
+    }
+    engine.apply(&NormalizedEvent::TurnStart, ms(600));
+    assert!(engine.sample(ms(700)).intensity > 0.06);
 }

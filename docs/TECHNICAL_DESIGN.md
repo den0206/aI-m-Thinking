@@ -310,7 +310,7 @@ struct SessionState {
 
 State and sound intensity are deliberately separate. A session may remain logically THINKING while its audio intensity decays to zero because no fresh signal has arrived.
 
-The reducer also tracks whether model output is pending: set by `TurnStart` and by a `ToolEnd` that leaves no active tools, cleared by `ToolStart` and `TurnEnd`. While output is pending, activity holds for 60 s after the last record and fades out by 120 s.
+The reducer also tracks whether model output is pending: set by `TurnStart` and by a `ToolEnd` that leaves no active tools, cleared by `ToolStart` and `TurnEnd`. Claude pending activity holds for 60 s after the last record and fades out by 120 s. Codex holds for 540 s and fades out by the existing 600 s stale-turn deadline. Explicit completion clears intensity immediately and blocks late content/tool signals until the next turn starts; timeout expiration still accepts fresh live evidence.
 
 ## 8. Activity Velocity
 
@@ -595,14 +595,7 @@ Core → App:
   "v": 1,
   "seq": 1,
   "type": "hello",
-  "core_version": "0.1.0",
-  "protocol_min": 1,
-  "protocol_max": 1,
-  "capabilities": [
-    "claude-passive",
-    "codex-legacy",
-    "codex-paginated"
-  ]
+  "core_version": "0.1.0"
 }
 ```
 
@@ -642,9 +635,7 @@ Core → App:
 MVP:
 
 - `configure`
-- `set_agent_enabled`
 - `rescan`
-- `ping`
 - `shutdown`
 
 ### Core → App activity
@@ -658,10 +649,7 @@ MVP:
   "agent": "codex",
   "phase": "thinking",
   "intensity": 0.63,
-  "confidence": "high",
-  "tool_class": null,
-  "basis": "reasoning_usage",
-  "at_ms": 48392
+  "tool_class": null
 }
 ```
 
@@ -676,7 +664,6 @@ Other core → app messages:
 - `session_closed`
 - `metrics`
 - `error`
-- `pong`
 
 ## 15. Settings schema
 

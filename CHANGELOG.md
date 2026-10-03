@@ -21,6 +21,9 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Fixed
 
+- Claude idle status cannot be undone by queued transcript records across scan budgets or by a partial row completed later.
+- Codex long model-output waits remain audible up to the bounded stale-turn deadline; paginated reasoning/messages and terminal answer phases are recognized.
+- Late records cannot reopen explicitly ended turns.
 - Claude Code turns end on the final message's `stop_reason`; current versions no longer write `turn_duration`, so sessions previously never returned to IDLE.
 - Activity holds while the model is generating output that has not reached the transcript yet, instead of falling silent after 5 seconds.
 - Claude interruption and meta rows no longer start a new turn.

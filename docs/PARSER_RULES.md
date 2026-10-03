@@ -29,6 +29,7 @@ Default root:
 | user row with text-only block list (interruption, injected context) | TurnEnd |
 | user row with `isMeta: true` | ignore |
 | string content starting `<command-`, `<local-command-`, `<bash-` (local command echo/output) | ignore |
+| `<command-message>` row with `origin.kind = "human"` (slash command or skill the model runs) | TurnStart |
 | string content starting `[Request interrupted by user` | TurnEnd |
 | assistant content: thinking / redacted_thinking | ThinkingPulse |
 | assistant content: text | WritingPulse |
@@ -41,6 +42,7 @@ A `type=user` row containing `tool_result` is not a new user turn.
 
 Observed on Claude Code 2.1.x:
 
+- Esc pressed before the model writes any row leaves no transcript record at all. The only signal is `~/.claude/sessions/<pid>.json` (`{"sessionId", "status": "busy" | "idle"}`), which flips to `idle` within about a second. When that directory sits next to the configured `projects` root, the runtime watches it and closes the turn of the matching session and its subagents on `idle`. With only `projects` granted (App Store sandbox), such turns fall back to the pending-output timeout.
 - `system/turn_duration` is not written. The terminal `stop_reason` of the last API message is the turn-end signal.
 - Every content block of one API message is written when that message completes, and each row already carries the final `stop_reason`. Rows are therefore completion signals that lag the work by the generation time (prompt or tool result to next row: median 5 s, p90 33 s, max 59 s in a measured session).
 - Because of that lag, the state reducer tracks "awaiting model output" after a prompt and after all tools return. Activity holds while output is pending and fades between 60 s and 120 s without a new record.
@@ -75,6 +77,15 @@ From the Codex rollout persistence policy (`codex-rs/rollout/src/policy.rs`):
 - `web_search_call` and `image_generation_call` response items are written only after the hosted tool completes and have no output item. They do not open a tool.
 - Built-in tool names: `apply_patch` (mutation); `exec_command`, `shell`, `shell_command`, `write_stdin` (shell); `read_file`, `list_dir`, `grep_files`, `view_image` (read); `web_search`, `tool_search` (search); `spawn_agent`, `wait_agent` (sub-agent).
 - Cold rollouts are compressed to `.jsonl.zst`. Resuming one writes the full history back to a new `.jsonl` file, so a newly created file is not necessarily new activity.
+
+- Paginated `item_completed` records use the case-sensitive TurnItem names `Reasoning`, `AgentMessage`, and `FunctionCallOutput`. Reasoning and assistant messages refresh activity; completed tool items close the corresponding tool instead of opening one.
+- Assistant `phase: "final_answer"` ends the turn unless `delivery: "async"` marks a mid-turn message. Commentary and messages without phase remain activity signals; `task_complete` / `turn_complete` / `turn_aborted` are explicit end signals.
+- Codex model-output waits hold activity for 540 seconds and fade over the final 60 seconds of the existing 600-second stale-turn limit. Claude keeps its 60-second hold and 120-second fade deadline. Waiting on read/search/shell tools remains silent.
+- Once an explicit turn end is observed, late content, tool, and usage records cannot reopen it; the next turn-start event is required. Both agents report zero intensity immediately on turn end.
+
+Upstream definitions: [rollout persistence policy](https://github.com/openai/codex/blob/main/codex-rs/rollout/src/policy.rs), [TurnItem](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/items.rs), and [MessagePhase](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/models.rs).
+
+Claude's external idle status records capture the transcript EOF as an interruption cutoff. Already-written records, including partial rows completed later, cannot reopen the turn. The normal byte and record scan budgets remain in effect.
 
 Missing tool IDs use a bounded fallback key. Missing IDs must never panic the parser.
 

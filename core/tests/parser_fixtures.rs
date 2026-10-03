@@ -59,7 +59,7 @@ fn claude_parallel_ids() {
         .iter()
         .filter_map(|event| {
             if let NormalizedEvent::ToolStart { id, .. } = event {
-                Some(id.as_str())
+                Some(&**id)
             } else {
                 None
             }
@@ -106,6 +106,31 @@ fn codex_tool() {
         }
     ));
     assert!(matches!(events[1], NormalizedEvent::ToolEnd { .. }));
+}
+
+#[test]
+fn codex_paginated_items_and_final_messages_follow_turn_lifecycle() {
+    let events = codex(r#"
+{"type":"event_msg","payload":{"type":"task_started"}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"Reasoning","summary_text":["ignored"]}}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","phase":"commentary","content":[]}}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","phase":"final_answer","delivery":"async","content":[]}}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"FunctionCallOutput","id":"tool"}}}
+{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","phase":"final_answer","content":[]}}}
+"#.trim());
+    assert!(matches!(events[1], NormalizedEvent::ThinkingPulse { .. }));
+    assert!(matches!(events[2], NormalizedEvent::WritingPulse { .. }));
+    assert!(matches!(events[3], NormalizedEvent::WritingPulse { .. }));
+    assert!(matches!(events[4], NormalizedEvent::ToolEnd { .. }));
+    assert_eq!(events[5], NormalizedEvent::TurnEnd);
+    for row in [
+        r#"{"type":"response_item","payload":{"type":"message","role":"assistant","phase":"final_answer"}}"#,
+        r#"{"type":"response_item","payload":{"type":"agent_message","phase":"final_answer"}}"#,
+        r#"{"type":"event_msg","payload":{"type":"agent_message","phase":"final_answer"}}"#,
+        r#"{"type":"event_msg","payload":{"type":"turn_aborted"}}"#,
+    ] {
+        assert_eq!(codex(row), vec![NormalizedEvent::TurnEnd]);
+    }
 }
 
 #[test]
@@ -266,4 +291,12 @@ fn codex_hosted_tools_do_not_open_tools_and_names_are_classified() {
         classes,
         vec![ToolClass::Mutation, ToolClass::Shell, ToolClass::SubAgent]
     );
+}
+
+#[test]
+fn claude_slash_command_starts_turn_but_local_command_does_not() {
+    let skill = r#"{"type":"user","origin":{"kind":"human"},"message":{"content":"<command-message>review</command-message>\n<command-name>/review</command-name>"}}"#;
+    let local = r#"{"type":"user","message":{"content":"<command-name>/clear</command-name>"}}"#;
+    assert_eq!(claude(skill), vec![NormalizedEvent::TurnStart]);
+    assert!(claude(local).is_empty());
 }

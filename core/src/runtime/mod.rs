@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::{self, File, Metadata};
-use std::io::{self, BufReader, Seek};
+use std::io::{self, BufReader, Read, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
@@ -9,7 +9,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::activity::ActivityEngine;
-use crate::events::{AgentState, ParsedRecord, ToolClass};
+use crate::events::{AgentState, NormalizedEvent, ParsedRecord, ToolClass};
 use crate::ipc::{AgentFlags, AgentKind, AgentRoots, RootGrant, ServerWriter};
 use crate::jsonl::{FILE_SCAN_BUDGET, FileCursor, record_reader, scan_records};
 use crate::observer::{ChangeEvent, ChangeKind, FileObserver};
@@ -38,11 +38,13 @@ const CREATION_SLACK: Duration = Duration::from_secs(1);
 /// produce sound. Claude Code stamps blocks when they start, up to about a
 /// minute before the message is written, so the margin is generous.
 const HISTORY_AGE: Duration = Duration::from_secs(10 * 60);
+/// Claude Code's per-process status files (`~/.claude/sessions/<pid>.json`)
+/// are a few hundred bytes; anything larger is not one.
+const MAX_STATUS_FILE_BYTES: u64 = 16 * 1024;
 /// serde_json reads one byte per `read()` call, so records are buffered.
 const PARSE_BUFFER_BYTES: usize = 8 * 1024;
 
 pub enum MonitorCommand {
-    SetEnabled { agent: AgentKind, enabled: bool },
     Rescan,
     Shutdown,
 }
@@ -58,10 +60,6 @@ pub struct MonitorHandle {
 }
 
 impl MonitorHandle {
-    pub fn set_enabled(&self, agent: AgentKind, enabled: bool) {
-        self.send(MonitorCommand::SetEnabled { agent, enabled });
-    }
-
     pub fn rescan(&self) {
         self.send(MonitorCommand::Rescan);
     }
@@ -110,8 +108,8 @@ where
 struct AgentRoot {
     kind: AgentKind,
     path: PathBuf,
-    enabled: bool,
     watcher: Option<FileObserver>,
+    status_watcher: Option<FileObserver>,
     _scope: Option<ScopedRoot>,
 }
 
@@ -151,6 +149,9 @@ struct Session {
     parser: Parser,
     activity: ActivityEngine,
     dirty: bool,
+    /// Records that were already present when an external idle signal arrived
+    /// must not reopen the interrupted turn, even across scan budgets.
+    interrupted_through: Option<u64>,
     last_event_at: Duration,
     last_phase: AgentState,
     last_emitted_intensity: f32,
@@ -282,23 +283,6 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
     fn handle_command(&mut self, command: MonitorCommand) {
         match command {
-            MonitorCommand::SetEnabled { agent, enabled } => {
-                let changed =
-                    if let Some(root) = self.roots.iter_mut().find(|root| root.kind == agent) {
-                        root.enabled = enabled;
-                        true
-                    } else {
-                        false
-                    };
-
-                if changed {
-                    if enabled {
-                        self.rescan_roots();
-                    } else {
-                        self.status(agent, "disabled");
-                    }
-                }
-            }
             MonitorCommand::Rescan => self.rescan_roots(),
             MonitorCommand::Shutdown => {}
         }
@@ -314,17 +298,12 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
     fn rescan_roots(&mut self) {
         for index in 0..self.roots.len() {
-            let enabled = self.roots[index].enabled;
             let kind = self.roots[index].kind;
             let path = self.roots[index].path.clone();
 
-            if !enabled {
-                self.status(kind, "disabled");
-                continue;
-            }
-
             if !path.is_dir() {
                 self.roots[index].watcher = None;
+                self.roots[index].status_watcher = None;
                 self.status(kind, "directory_missing");
                 continue;
             }
@@ -345,6 +324,20 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                         continue;
                     }
                 }
+            }
+
+            // Optional: unavailable when only the projects folder was granted.
+            if self.roots[index].status_watcher.is_none()
+                && let Some(dir) = claude_status_dir(kind, &path).filter(|dir| dir.is_dir())
+            {
+                let inbound = self.inbound.clone();
+                let overflow = Arc::clone(&self.overflow);
+                let sink = move |event| {
+                    if let Err(TrySendError::Full(_)) = inbound.try_send(Inbound::Change(event)) {
+                        overflow.store(true, Ordering::Relaxed);
+                    }
+                };
+                self.roots[index].status_watcher = FileObserver::watch(&dir, sink).ok();
             }
 
             self.baseline_root(kind, &path);
@@ -405,6 +398,11 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
     fn handle_change(&mut self, event: ChangeEvent) {
         for path in event.paths {
+            if self.is_status_file(&path) {
+                self.apply_status_file(&path);
+                continue;
+            }
+
             if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
                 continue;
             }
@@ -412,9 +410,6 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             let Some(agent) = self.agent_for_path(&path) else {
                 continue;
             };
-            if !self.agent_enabled(agent) {
-                continue;
-            }
 
             match event.kind {
                 ChangeKind::Create => self.open_new_session(path, agent),
@@ -468,6 +463,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                     | Ok(crate::jsonl::RefreshOutcome::Truncated) => {
                         session.file = reopened;
                         session.dirty = false;
+                        session.interrupted_through = None;
                     }
                     Err(_) => {}
                 }
@@ -529,8 +525,15 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             file,
             cursor,
             parser: Parser::new(agent),
-            activity: ActivityEngine::new(now),
+            activity: ActivityEngine::with_pending_timeout(
+                now,
+                match agent {
+                    AgentKind::Claude => Duration::from_secs(120),
+                    AgentKind::Codex => STALE_TURN_TIMEOUT,
+                },
+            ),
             dirty,
+            interrupted_through: None,
             last_event_at: now,
             last_phase: AgentState::Idle,
             last_emitted_intensity: 0.0,
@@ -616,6 +619,13 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                 continue;
             };
 
+            if session
+                .interrupted_through
+                .is_some_and(|offset| range.start < offset)
+            {
+                continue;
+            }
+
             let history = record
                 .timestamp_ms
                 .is_some_and(|written| written < history_before_ms);
@@ -648,7 +658,6 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     /// zero-intensity update is sent and the session stops emitting.
     fn emit_activity(&mut self) {
         let now = self.now();
-        let at_ms = now.as_millis().min(u64::MAX as u128) as u64;
 
         let samples: Vec<_> = self
             .sessions
@@ -681,7 +690,73 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             .collect();
 
         for (handle, agent, sample, tool_class) in samples {
-            self.with_writer(|writer| writer.activity(handle, agent, sample, tool_class, at_ms));
+            self.with_writer(|writer| writer.activity(handle, agent, sample, tool_class));
+        }
+    }
+
+    fn is_status_file(&self, path: &Path) -> bool {
+        path.extension().is_some_and(|ext| ext == "json")
+            && self
+                .roots
+                .iter()
+                .any(|root| claude_status_dir(root.kind, &root.path).as_deref() == path.parent())
+    }
+
+    /// Claude Code writes no transcript record when the user presses Esc
+    /// before the model has produced output, but its status file flips to
+    /// `idle`. Closes the turn of that session and of its subagents, whose
+    /// transcripts live under a directory named after the session id.
+    fn apply_status_file(&mut self, path: &Path) {
+        #[derive(serde::Deserialize)]
+        struct StatusFile {
+            #[serde(rename = "sessionId")]
+            session_id: String,
+            status: Option<String>,
+        }
+
+        // Read the current content rather than trusting the event: a late
+        // notification must not end a turn the user has already restarted.
+        let Ok(file) = File::open(path) else {
+            return;
+        };
+        let Ok(status) = serde_json::from_reader::<_, StatusFile>(file.take(MAX_STATUS_FILE_BYTES))
+        else {
+            return;
+        };
+        if status.status.as_deref() != Some("idle") {
+            return;
+        }
+
+        let id = status.session_id.as_str();
+        let matching: Vec<_> = self
+            .sessions
+            .iter()
+            .filter(|(transcript, session)| {
+                session.agent == AgentKind::Claude
+                    && (transcript.file_stem().is_some_and(|stem| stem == id)
+                        || transcript.iter().any(|part| part == id))
+            })
+            .map(|(transcript, _)| transcript.clone())
+            .collect();
+
+        for transcript in matching {
+            let now = self.now();
+            if let Some(session) = self.sessions.get_mut(&transcript) {
+                // An idle session has nothing to interrupt. Its status file can
+                // still read `idle` just after a new prompt row was written, and
+                // a cutoff then would swallow that prompt's TurnStart.
+                if session.activity.state().phase() == AgentState::Idle {
+                    continue;
+                }
+                // Keep normal scan budgets. A cutoff also covers incomplete
+                // records that finish after this notification.
+                let Ok(metadata) = session.file.metadata() else {
+                    continue;
+                };
+                session.interrupted_through = Some(metadata.len());
+                session.activity.apply(&NormalizedEvent::TurnEnd, now);
+                session.last_event_at = now;
+            }
         }
     }
 
@@ -690,13 +765,6 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             .iter()
             .find(|root| path.starts_with(&root.path))
             .map(|root| root.kind)
-    }
-
-    fn agent_enabled(&self, agent: AgentKind) -> bool {
-        self.roots
-            .iter()
-            .find(|root| root.kind == agent)
-            .is_some_and(|root| root.enabled)
     }
 
     fn now(&self) -> Duration {
@@ -772,9 +840,19 @@ fn discover_jsonl(root: &Path) -> Vec<(PathBuf, Metadata)> {
     found
 }
 
+/// `~/.claude/sessions` next to a Claude `~/.claude/projects` root.
+fn claude_status_dir(agent: AgentKind, root: &Path) -> Option<PathBuf> {
+    if agent != AgentKind::Claude || root.file_name()? != "projects" {
+        return None;
+    }
+    Some(root.parent()?.join("sessions"))
+}
+
+/// A disabled agent simply gets no roots.
 fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) -> Vec<AgentRoot> {
     grants
         .into_iter()
+        .filter(|_| enabled)
         .take(MAX_CONFIGURED_ROOTS_PER_AGENT)
         .filter_map(|grant| {
             if let Some(bookmark) = grant.bookmark {
@@ -782,8 +860,8 @@ fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) 
                 return Some(AgentRoot {
                     kind: agent,
                     path: scope.path().to_path_buf(),
-                    enabled,
                     watcher: None,
+                    status_watcher: None,
                     _scope: Some(scope),
                 });
             }
@@ -796,8 +874,8 @@ fn resolve_root_grants(agent: AgentKind, grants: Vec<RootGrant>, enabled: bool) 
             Some(AgentRoot {
                 kind: agent,
                 path: PathBuf::from(path),
-                enabled,
                 watcher: None,
+                status_watcher: None,
                 _scope: None,
             })
         })
@@ -1076,6 +1154,53 @@ mod tests {
     }
 
     #[test]
+    fn idle_status_file_closes_turn_interrupted_before_output() {
+        let base = std::env::temp_dir().join(format!(
+            "im-thinking-status-fixture-{}-{}",
+            std::process::id(),
+            NEXT_ROOT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&base);
+        let sessions = base.join("sessions");
+        fs::create_dir_all(base.join("projects/p")).unwrap();
+        fs::create_dir_all(&sessions).unwrap();
+        let mut fixture = Fixture::with_root(base.join("projects"));
+
+        let main = fixture.path("p/abc.jsonl");
+        let subagent = fixture.path("p/abc/subagents/agent-1.jsonl");
+        let other = fixture.path("p/xyz.jsonl");
+        fs::create_dir_all(subagent.parent().unwrap()).unwrap();
+        for path in [&main, &subagent, &other] {
+            append(path, USER_TURN);
+            fixture.change(ChangeKind::Create, path);
+        }
+
+        let status = sessions.join("123.json");
+        fs::write(&status, r#"{"pid":123,"sessionId":"abc","status":"busy"}"#).unwrap();
+        fixture.change(ChangeKind::Modify, &status);
+        assert_eq!(
+            fixture.session(&main).activity.state().phase(),
+            AgentState::Thinking
+        );
+
+        // Esc while thinking: no transcript record, only the status flips.
+        fs::write(&status, r#"{"pid":123,"sessionId":"abc","status":"idle"}"#).unwrap();
+        fixture.change(ChangeKind::Modify, &status);
+        assert_eq!(
+            fixture.session(&main).activity.state().phase(),
+            AgentState::Idle
+        );
+        assert_eq!(
+            fixture.session(&subagent).activity.state().phase(),
+            AgentState::Idle
+        );
+        assert_eq!(
+            fixture.session(&other).activity.state().phase(),
+            AgentState::Thinking
+        );
+    }
+
+    #[test]
     fn restored_history_updates_state_without_emitting_activity() {
         let mut fixture = Fixture::new();
         let path = fixture.path("restored.jsonl");
@@ -1102,6 +1227,143 @@ mod tests {
                 .all(|message| message["intensity"] == 0.0)
         );
         assert!(!fixture.session(&path).activity.state().awaiting_model());
+    }
+
+    #[test]
+    fn idle_status_does_not_swallow_a_prompt_written_while_idle() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("abc.jsonl");
+        append(&path, USER_TURN);
+        append(&path, r#"{"type":"system","subtype":"turn_duration"}"#);
+        fixture.change(ChangeKind::Create, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+
+        // The next prompt lands before the status file flips to busy.
+        append(&path, USER_TURN);
+        let status = fixture.path("status.json");
+        fs::write(&status, r#"{"sessionId":"abc","status":"idle"}"#).unwrap();
+        fixture.runtime.apply_status_file(&status);
+        fixture.change(ChangeKind::Modify, &path);
+
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+    }
+
+    #[test]
+    fn idle_status_cutoff_covers_scan_budgets_and_partial_rows() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("abc.jsonl");
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Create, &path);
+        fixture.output.take_messages();
+
+        // More than both the byte and record budgets, followed by a partial row.
+        for _ in 0..3000 {
+            append(&path, USER_TURN);
+        }
+        append(
+            &path,
+            &format!(r#"{{"ignored":"{}"}}"#, "x".repeat(FILE_SCAN_BUDGET)),
+        );
+        let mut file = fs::OpenOptions::new().append(true).open(&path).unwrap();
+        write!(file, r#"{{"type":"user","message":{{"content":""#).unwrap();
+
+        let status = fixture.path("status.json");
+        fs::write(&status, r#"{"sessionId":"abc","status":"idle"}"#).unwrap();
+        fixture.runtime.apply_status_file(&status);
+        fixture.runtime.sessions.get_mut(&path).unwrap().dirty = true;
+        let mut scans = 0;
+        while fixture.session(&path).dirty {
+            fixture.runtime.process_dirty_sessions();
+            fixture.runtime.emit_activity();
+            assert_eq!(
+                fixture.session(&path).activity.state().phase(),
+                AgentState::Idle
+            );
+            scans += 1;
+            assert!(scans < 20);
+        }
+        assert!(scans > 1);
+
+        // Completing the interrupted row later must still stay silent.
+        writeln!(file, r#"x"}}}}"#).unwrap();
+        fixture.change(ChangeKind::Modify, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        assert!(
+            fixture
+                .output
+                .take_activity()
+                .iter()
+                .all(|m| m["intensity"] == 0.0)
+        );
+
+        // A genuinely new prompt beyond the cutoff starts a new turn.
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Modify, &path);
+        fixture.advance(ACTIVITY_INTERVAL);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+        assert!(
+            fixture
+                .output
+                .take_activity()
+                .iter()
+                .any(|m| m["intensity"].as_f64().unwrap() > 0.06)
+        );
+    }
+
+    #[test]
+    fn codex_long_turn_finishes_without_late_records_reopening_it() {
+        let mut fixture = Fixture::new();
+        fixture.runtime.roots[0].kind = AgentKind::Codex;
+        let path = fixture.path("codex.jsonl");
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        );
+        fixture.change(ChangeKind::Create, &path);
+        fixture.advance(Duration::from_secs(180));
+        assert!(
+            fixture
+                .output
+                .take_activity()
+                .iter()
+                .any(|m| m["intensity"].as_f64().unwrap() > 0.06)
+        );
+
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"task_complete"}}"#,
+        );
+        fixture.change(ChangeKind::Modify, &path);
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage"}}}"#,
+        );
+        fixture.change(ChangeKind::Modify, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        assert!(
+            fixture
+                .output
+                .take_activity()
+                .iter()
+                .all(|m| m["phase"] == "idle" && m["intensity"] == 0.0)
+        );
+        fixture.advance(SIGNAL_SETTLE);
+        assert_eq!(fixture.runtime.next_wakeup(), None);
     }
 
     #[test]

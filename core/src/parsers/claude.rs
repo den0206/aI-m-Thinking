@@ -53,9 +53,9 @@ impl ClaudeParser {
                     confidence: Confidence::Medium,
                 }),
                 Some("tool_use" | "server_tool_use") => {
-                    let id = block.id.clone().map(ToolKey::new).unwrap_or_else(|| {
+                    let id = block.id.clone().map(Into::into).unwrap_or_else(|| {
                         self.anonymous_tool = self.anonymous_tool.wrapping_add(1);
-                        ToolKey::new(format!("claude-anon-{}", self.anonymous_tool))
+                        ToolKey::from(format!("claude-anon-{}", self.anonymous_tool))
                     });
                     out.push(NormalizedEvent::ToolStart {
                         id,
@@ -86,7 +86,7 @@ impl ClaudeParser {
             if block.kind.as_deref() == Some("tool_result") {
                 results += 1;
                 out.push(NormalizedEvent::ToolEnd {
-                    id: block.tool_use_id.clone().map(ToolKey::new),
+                    id: block.tool_use_id.clone().map(Into::into),
                 });
             }
         }
@@ -111,12 +111,14 @@ impl ClaudeParser {
 
         match message.content.text {
             // Local command echoes and their output never reach the model.
-            Some(TextKind::LocalCommand) => return,
+            // A human-origin `<command-message>` row is a slash command or
+            // skill the model runs, so it starts a turn.
+            Some(TextKind::LocalCommand) if !human => return,
             Some(TextKind::Interrupt) => {
                 out.push(NormalizedEvent::TurnEnd);
                 return;
             }
-            Some(TextKind::Prompt) | None => {}
+            Some(TextKind::Prompt | TextKind::LocalCommand) | None => {}
         }
 
         if human || message.content.text.is_some() || attachment {

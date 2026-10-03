@@ -40,10 +40,7 @@ Every Core -> App message contains:
   "v": 1,
   "seq": 1,
   "type": "hello",
-  "core_version": "0.1.0",
-  "protocol_min": 1,
-  "protocol_max": 1,
-  "capabilities": ["claude-passive","codex-legacy","codex-paginated"]
+  "core_version": "0.1.0"
 }
 ```
 
@@ -85,13 +82,13 @@ Rules:
 - Invalid/empty grants are ignored.
 - The entire configure record remains subject to the 32 KiB IPC limit.
 - Real session identifiers and transcript contents never cross IPC.
+- An agent whose `agents` flag is false gets no roots; there is no runtime toggle.
+- Sole exception to reading only granted roots: for a Claude root named `projects`, Core also watches the sibling `sessions` directory read-only (one watcher per root, released with the root). Only `sessionId` and `status` are parsed from files of at most 16 KiB and never cross IPC. Where the sandbox does not allow it, the watcher is skipped.
 
 ## App -> Core messages
 
 - `configure`
-- `set_agent_enabled`
 - `rescan`
-- `ping`
 - `shutdown`
 
 ## Core -> App messages
@@ -104,7 +101,6 @@ Rules:
 - `session_closed`
 - `metrics`
 - `error`
-- `pong`
 
 ## Activity
 
@@ -117,10 +113,7 @@ Rules:
   "agent": "codex",
   "phase": "thinking",
   "intensity": 0.63,
-  "confidence": "high",
-  "tool_class": null,
-  "basis": "reasoning_usage",
-  "at_ms": 48392
+  "tool_class": null
 }
 ```
 
@@ -132,11 +125,6 @@ Rules:
 - `writing`
 - `tool`
 
-### confidence
-- `high`
-- `medium`
-- `low`
-
 ### tool_class
 - `mutation`
 - `shell`
@@ -145,14 +133,6 @@ Rules:
 - `subagent`
 - `mcp`
 - `generic`
-
-### basis
-- `reasoning_usage`
-- `reasoning_record`
-- `text_record`
-- `tool_event`
-- `state_baseline`
-- `mixed`
 
 Activity updates are capped at about 10 Hz per session. Phase transitions may be emitted immediately.
 

@@ -99,6 +99,7 @@ Only ephemeral classification metadata/counters may cross from Rust to Swift.
 - App Store mode persists only security-scoped bookmark data in the app container.
 - The Rust helper receives transfer bookmark data, resolves it locally, and holds the resulting scope only for the monitor lifetime.
 - Root grants are capped at 4 per agent.
+- A Claude `projects` root may add one read-only watcher on its sibling `sessions` directory; status files are read up to 16 KiB and the watcher is released when the root goes missing.
 - Configure messages remain capped at 32 KiB.
 - The helper receives App Sandbox + inherit entitlements only; it does not receive broad user-selected file entitlements.
 - Full Disk Access is not a supported fallback.

@@ -24,35 +24,10 @@ pub enum UsageCadence {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActivityBasis {
-    ReasoningUsage,
-    ReasoningRecord,
-    TextRecord,
-    ToolEvent,
-    StateBaseline,
-    Mixed,
-}
-
-impl ActivityBasis {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::ReasoningUsage => "reasoning_usage",
-            Self::ReasoningRecord => "reasoning_record",
-            Self::TextRecord => "text_record",
-            Self::ToolEvent => "tool_event",
-            Self::StateBaseline => "state_baseline",
-            Self::Mixed => "mixed",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct ActivitySample {
     pub phase: AgentState,
     pub intensity: f32,
-    pub confidence: Confidence,
-    pub basis: ActivityBasis,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -80,16 +55,20 @@ pub struct ActivityEngine {
     token_score: f32,
     last_signal_at: Duration,
     confidence: Confidence,
-    basis: ActivityBasis,
     smoothed: f32,
     last_sample_at: Duration,
     /// Set while the latest events came from history; the state baseline stays
     /// silent until a live event arrives.
     history_only: bool,
+    pending_end: Duration,
 }
 
 impl ActivityEngine {
     pub fn new(now: Duration) -> Self {
+        Self::with_pending_timeout(now, PENDING_END)
+    }
+
+    pub fn with_pending_timeout(now: Duration, pending_end: Duration) -> Self {
         Self {
             state: SessionState::default(),
             thinking: None,
@@ -100,10 +79,10 @@ impl ActivityEngine {
             token_score: 0.0,
             last_signal_at: now,
             confidence: Confidence::Low,
-            basis: ActivityBasis::StateBaseline,
             smoothed: 0.0,
             last_sample_at: now,
             history_only: false,
+            pending_end,
         }
     }
 
@@ -128,6 +107,9 @@ impl ActivityEngine {
     }
 
     pub fn apply(&mut self, event: &NormalizedEvent, now: Duration) {
+        if !self.state.accepts(event) {
+            return;
+        }
         self.history_only = false;
         self.state.apply(event);
 
@@ -135,7 +117,6 @@ impl ActivityEngine {
             NormalizedEvent::TurnStart => {
                 self.last_signal_at = now;
                 self.confidence = Confidence::Low;
-                self.basis = ActivityBasis::StateBaseline;
             }
             NormalizedEvent::ThinkingPulse { units, confidence } => {
                 self.thinking = Some(Impulse {
@@ -145,7 +126,6 @@ impl ActivityEngine {
                 });
                 self.last_signal_at = now;
                 self.confidence = *confidence;
-                self.basis = ActivityBasis::ReasoningRecord;
             }
             NormalizedEvent::WritingPulse { units, confidence } => {
                 self.writing = Some(Impulse {
@@ -155,7 +135,6 @@ impl ActivityEngine {
                 });
                 self.last_signal_at = now;
                 self.confidence = *confidence;
-                self.basis = ActivityBasis::TextRecord;
             }
             NormalizedEvent::ToolStart { class, .. } => {
                 if *class == ToolClass::Mutation {
@@ -167,22 +146,23 @@ impl ActivityEngine {
                 }
                 self.last_signal_at = now;
                 self.confidence = Confidence::Medium;
-                self.basis = ActivityBasis::ToolEvent;
             }
             NormalizedEvent::ToolEnd { .. } => {
                 self.last_signal_at = now;
                 self.confidence = Confidence::Medium;
-                self.basis = ActivityBasis::ToolEvent;
             }
             NormalizedEvent::UsagePulse {
                 output_tokens,
                 reasoning_tokens,
             } => self.apply_usage(*output_tokens, *reasoning_tokens, now),
             NormalizedEvent::TurnEnd => {
+                self.thinking = None;
+                self.writing = None;
+                self.mutation = None;
+                self.smoothed = 0.0;
                 self.last_signal_at = now;
                 self.token_score = 0.0;
                 self.confidence = Confidence::Low;
-                self.basis = ActivityBasis::StateBaseline;
             }
         }
     }
@@ -225,12 +205,6 @@ impl ActivityEngine {
         ActivitySample {
             phase: self.state.phase(),
             intensity: self.smoothed,
-            confidence: self.effective_confidence(now),
-            basis: if count_nonzero([thinking, writing, mutation, token, baseline]) > 1 {
-                ActivityBasis::Mixed
-            } else {
-                self.basis
-            },
         }
     }
 
@@ -245,6 +219,7 @@ impl ActivityEngine {
         }
 
         self.apply(&NormalizedEvent::TurnEnd, now);
+        self.state.mark_stale();
         true
     }
 
@@ -268,7 +243,6 @@ impl ActivityEngine {
             let output_score = 1.0 - (-output_per_second / 45.0).exp();
             self.token_score = reasoning_score.max(output_score).clamp(0.0, 1.0);
             self.confidence = Confidence::High;
-            self.basis = ActivityBasis::ReasoningUsage;
         }
 
         self.last_signal_at = now;
@@ -294,7 +268,7 @@ impl ActivityEngine {
                 AgentState::Thinking => 0.30,
                 AgentState::Idle | AgentState::Tool => 0.0,
             };
-            return level * pending_freshness(age);
+            return level * pending_freshness(age, self.pending_end);
         }
 
         let base = match self.state.phase() {
@@ -317,7 +291,7 @@ impl ActivityEngine {
     /// until it fades, regardless of how old the last record is.
     fn effective_confidence(&self, now: Duration) -> Confidence {
         let age = now.saturating_sub(self.last_signal_at);
-        let pending = self.state.awaiting_model() && age < PENDING_END;
+        let pending = self.state.awaiting_model() && age < self.pending_end;
         match (age <= RECENT_SIGNAL, pending) {
             (true, true) if self.confidence == Confidence::Low => Confidence::Medium,
             (true, _) => self.confidence,
@@ -348,11 +322,12 @@ fn freshness(age: Duration) -> f32 {
     }
 }
 
-fn pending_freshness(age: Duration) -> f32 {
-    if age <= PENDING_HOLD {
+fn pending_freshness(age: Duration, end: Duration) -> f32 {
+    let hold = end.saturating_sub(PENDING_END - PENDING_HOLD);
+    if age <= hold {
         1.0
-    } else if age < PENDING_END {
-        let fade = (age - PENDING_HOLD).as_secs_f32() / (PENDING_END - PENDING_HOLD).as_secs_f32();
+    } else if age < end {
+        let fade = (age - hold).as_secs_f32() / (end - hold).as_secs_f32();
         1.0 - fade
     } else {
         0.0
@@ -365,8 +340,4 @@ fn confidence_multiplier(confidence: Confidence) -> f32 {
         Confidence::Medium => 0.8,
         Confidence::Low => 0.55,
     }
-}
-
-fn count_nonzero(values: [f32; 5]) -> usize {
-    values.into_iter().filter(|value| *value > 0.001).count()
 }

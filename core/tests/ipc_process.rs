@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
-fn core_handshake_ping_and_shutdown() {
+fn core_handshake_and_shutdown() {
     let home = std::env::temp_dir().join(format!(
         "im-thinking-ipc-{}-{}",
         std::process::id(),
@@ -48,19 +48,6 @@ fn core_handshake_ping_and_shutdown() {
 
     let ready = read_json(&mut stdout);
     assert_eq!(ready["type"], "ready");
-
-    write_command(&mut stdin, r#"{"v":1,"type":"ping","id":42}"#);
-
-    let mut saw_pong = false;
-    for _ in 0..8 {
-        let message = read_json(&mut stdout);
-        if message["type"] == "pong" {
-            assert_eq!(message["id"], 42);
-            saw_pong = true;
-            break;
-        }
-    }
-    assert!(saw_pong);
 
     write_command(&mut stdin, r#"{"v":1,"type":"shutdown"}"#);
     drop(stdin);

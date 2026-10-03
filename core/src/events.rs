@@ -5,16 +5,6 @@ pub enum Confidence {
     Low,
 }
 
-impl Confidence {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::High => "high",
-            Self::Medium => "medium",
-            Self::Low => "low",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentState {
     Idle,
@@ -59,18 +49,7 @@ impl ToolClass {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ToolKey(Box<str>);
-
-impl ToolKey {
-    pub fn new(value: impl Into<Box<str>>) -> Self {
-        Self(value.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+pub type ToolKey = Box<str>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NormalizedEvent {

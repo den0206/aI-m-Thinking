@@ -64,18 +64,10 @@ fn run() -> io::Result<()> {
                 with_writer(&writer, |writer| writer.ready())?;
                 monitor = Some(spawn_monitor(Arc::clone(&writer), agents, roots));
             }
-            ClientCommand::SetAgentEnabled { agent, enabled, .. } => {
-                if let Some(monitor) = &monitor {
-                    monitor.set_enabled(agent, enabled);
-                }
-            }
             ClientCommand::Rescan { .. } => {
                 if let Some(monitor) = &monitor {
                     monitor.rescan();
                 }
-            }
-            ClientCommand::Ping { id, .. } => {
-                with_writer(&writer, |writer| writer.pong(id))?;
             }
             ClientCommand::Shutdown { .. } => break,
         }

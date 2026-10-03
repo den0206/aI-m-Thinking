@@ -41,11 +41,9 @@ impl CodexParser {
                 confidence: Confidence::High,
             }),
             Some("message") if p.role.as_deref() == Some("assistant") => {
-                out.push(NormalizedEvent::WritingPulse {
-                    units: 1,
-                    confidence: Confidence::High,
-                })
+                self.assistant_message(p, out)
             }
+            Some("agent_message") => self.assistant_message(p, out),
             Some(k) if is_call(k) => out.push(self.tool_start(p, k)),
             Some(k) if is_output(k) => self.tool_end(p.tool_id(), out),
             _ => {}
@@ -54,7 +52,10 @@ impl CodexParser {
 
     fn event(&mut self, p: &CodexPayload, out: &mut Vec<NormalizedEvent>) {
         match p.kind.as_deref() {
-            Some("task_started" | "turn_started") => out.push(NormalizedEvent::TurnStart),
+            Some("task_started" | "turn_started") => {
+                self.recent_tool_ends.clear();
+                out.push(NormalizedEvent::TurnStart);
+            }
             Some("task_complete" | "turn_complete" | "turn_aborted") => {
                 out.push(NormalizedEvent::TurnEnd)
             }
@@ -64,10 +65,7 @@ impl CodexParser {
                     confidence: Confidence::High,
                 })
             }
-            Some("agent_message") => out.push(NormalizedEvent::WritingPulse {
-                units: 1,
-                confidence: Confidence::High,
-            }),
+            Some("agent_message") => self.assistant_message(p, out),
             Some("exec_command_begin") => out.push(self.named_start(p, ToolClass::Shell)),
             Some("exec_command_end") => self.tool_end(p.tool_id(), out),
             Some("mcp_tool_call_begin") => out.push(self.named_start(p, ToolClass::Mcp)),
@@ -86,14 +84,41 @@ impl CodexParser {
             Some("item_completed") => {
                 if let Some(item) = p.item.as_deref() {
                     if let Some(k) = item.kind.as_deref() {
-                        if is_output(k) || is_call(k) {
-                            self.tool_end(item.tool_id(), out);
+                        match k {
+                            "Reasoning" => out.push(NormalizedEvent::ThinkingPulse {
+                                units: 1,
+                                confidence: Confidence::High,
+                            }),
+                            "AgentMessage" => self.assistant_message(item, out),
+                            "FunctionCallOutput" => self.tool_end(item.tool_id(), out),
+                            "CommandExecution"
+                            | "DynamicToolCall"
+                            | "CollabAgentToolCall"
+                            | "McpToolCall"
+                                if item.status.as_deref() != Some("in_progress") =>
+                            {
+                                self.tool_end(item.tool_id(), out);
+                            }
+                            _ if is_output(k) || is_call(k) => self.tool_end(item.tool_id(), out),
+                            _ => {}
                         }
                     }
                 }
             }
             Some("token_count") => self.usage(p, out),
             _ => {}
+        }
+    }
+
+    fn assistant_message(&self, p: &CodexPayload, out: &mut Vec<NormalizedEvent>) {
+        // Async delivery is mid-turn even when the message has a final phase.
+        if p.phase.as_deref() == Some("final_answer") && p.delivery.as_deref() != Some("async") {
+            out.push(NormalizedEvent::TurnEnd);
+        } else {
+            out.push(NormalizedEvent::WritingPulse {
+                units: 1,
+                confidence: Confidence::High,
+            });
         }
     }
 
@@ -105,7 +130,7 @@ impl CodexParser {
         };
         let id = p
             .tool_id()
-            .map(ToolKey::new)
+            .map(Into::into)
             .unwrap_or_else(|| self.anonymous());
         NormalizedEvent::ToolStart { id, class }
     }
@@ -113,18 +138,18 @@ impl CodexParser {
     fn named_start(&mut self, p: &CodexPayload, class: ToolClass) -> NormalizedEvent {
         let id = p
             .tool_id()
-            .map(ToolKey::new)
+            .map(Into::into)
             .unwrap_or_else(|| self.anonymous());
         NormalizedEvent::ToolStart { id, class }
     }
 
     fn anonymous(&mut self) -> ToolKey {
         self.anonymous_tool = self.anonymous_tool.wrapping_add(1);
-        ToolKey::new(format!("codex-anon-{}", self.anonymous_tool))
+        ToolKey::from(format!("codex-anon-{}", self.anonymous_tool))
     }
 
     fn tool_end(&mut self, raw: Option<&str>, out: &mut Vec<NormalizedEvent>) {
-        let id = raw.map(ToolKey::new);
+        let id = raw.map(Into::into);
         if let Some(ref key) = id {
             if self.recent_tool_ends.contains(key) {
                 return;
@@ -208,6 +233,9 @@ struct CodexPayload {
     kind: Option<String>,
     role: Option<String>,
     name: Option<String>,
+    phase: Option<String>,
+    delivery: Option<String>,
+    status: Option<String>,
     call_id: Option<String>,
     id: Option<String>,
     item: Option<Box<CodexPayload>>,
