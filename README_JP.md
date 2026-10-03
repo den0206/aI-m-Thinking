@@ -106,7 +106,7 @@ open ".build/debug/aI'm Thinking Debug.app"
 
 ### App icon
 
-アイコンは `app/Resources/AppIcon/generate_icon.py` から生成します。色・手の位置・ズームなどはファイル先頭の `CONFIG` を編集し、次で `AppIcon.svg`、`app/Resources/AppIcon.icns`、`docs/images/icon.png` を再生成します。
+アイコンは `app/Resources/AppIcon/generate_icon.py` から生成します。キーの文字・色・大きさなどはファイル先頭の `CONFIG` を編集し、次で `AppIcon.svg`、`app/Resources/AppIcon.icns`、`docs/images/icon.png` を再生成します。
 
 ```bash
 ./scripts/make-icon.sh
