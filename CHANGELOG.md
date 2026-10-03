@@ -17,6 +17,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Missing folders, failed monitoring, and unavailable folder grants are shown per agent; invalid saved grants no longer appear as allowed.
 - Sound previews stop the audio engine after playback when no agent activity is playing.
 - A failed or unresponsive core is restarted up to three times with a connection timeout; manual stop cancels retries.
+- Pressing Esc in Claude Code before any output stops the sound even while a background task of that session is running.
 - Large transcript archives are scanned in successive bounded batches, while tracked sessions are checked on every reconciliation.
 - Start at Login failures and pending system approval are explained with a link to Login Items settings.
 - With more than 64 tracked sessions, idle sessions are no longer reopened and closed every few seconds.

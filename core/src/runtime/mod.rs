@@ -973,7 +973,9 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         else {
             return;
         };
-        if status.status.as_deref() != Some("idle") {
+        // Claude Code writes `shell` instead of `idle` while background tasks
+        // of the process are still running; the model is not working either way.
+        if !matches!(status.status.as_deref(), Some("idle" | "shell")) {
             return;
         }
 
@@ -1883,6 +1885,31 @@ mod tests {
                 .all(|message| message["intensity"] == 0.0)
         );
         assert!(!fixture.session(&path).activity.state().awaiting_model());
+    }
+
+    #[test]
+    fn shell_status_closes_turn_but_waiting_does_not() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("abc.jsonl");
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Create, &path);
+        let status = fixture.path("status.json");
+
+        // Waiting for a permission answer keeps the turn open.
+        fs::write(&status, r#"{"sessionId":"abc","status":"waiting"}"#).unwrap();
+        fixture.runtime.apply_status_file(&status);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+
+        // Esc with a background shell task still running.
+        fs::write(&status, r#"{"sessionId":"abc","status":"shell"}"#).unwrap();
+        fixture.runtime.apply_status_file(&status);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
     }
 
     #[test]
