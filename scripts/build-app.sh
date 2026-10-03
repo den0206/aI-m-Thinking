@@ -22,6 +22,15 @@ case "$CONFIG" in
     SWIFT_CONFIG="release"
     DISTRIBUTION="direct"
     ;;
+  appstore)
+    # Mac App Store submission. Needs SIGN_IDENTITY="Apple Distribution: ...",
+    # INSTALLER_IDENTITY="3rd Party Mac Developer Installer: ..." and PROVISIONING_PROFILE.
+    APP_NAME="aI'm Thinking"
+    BUNDLE_ID="com.den0206.AImThinking"
+    CORE_DIR="release"
+    SWIFT_CONFIG="release"
+    DISTRIBUTION="app-store"
+    ;;
   appstore-smoke)
     APP_NAME="aI'm Thinking App Store Smoke"
     BUNDLE_ID="com.den0206.AImThinking.appstore-smoke"
@@ -38,7 +47,7 @@ case "$CONFIG" in
     DISTRIBUTION="app-store"
     ;;
   *)
-    echo "CONFIG must be 'debug', 'release', 'appstore-smoke', or 'appstore-debug'" >&2
+    echo "CONFIG must be 'debug', 'release', 'appstore', 'appstore-smoke', or 'appstore-debug'" >&2
     exit 2
     ;;
 esac
@@ -98,6 +107,12 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Yuuki Sakai</string>
     <key>AImThinkingDistribution</key>
     <string>$DISTRIBUTION</string>
 </dict>
@@ -113,9 +128,21 @@ fi
 CORE_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 APP_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 
-if [[ "$CONFIG" == appstore-* ]]; then
+if [[ "$CONFIG" == appstore* ]]; then
   APP_ENTITLEMENTS="$ROOT/app/Resources/AImThinking.appstore.entitlements"
-  if [[ "$CONFIG" == "appstore-debug" ]]; then
+  if [[ "$CONFIG" == "appstore" ]]; then
+    # The App Store needs the profile embedded and its team/app IDs in the app's entitlements.
+    PROFILE_PLIST="$OUT_DIR/profile.plist"
+    security cms -D -i "$PROVISIONING_PROFILE" > "$PROFILE_PLIST"
+    TEAM_ID="$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$PROFILE_PLIST")"
+    cp "$PROVISIONING_PROFILE" "$CONTENTS/embedded.provisionprofile"
+    # A downloaded profile carries com.apple.quarantine, which the App Store rejects.
+    xattr -c "$CONTENTS/embedded.provisionprofile"
+    APP_ENTITLEMENTS="$OUT_DIR/AImThinking.entitlements"
+    cp "$ROOT/app/Resources/AImThinking.appstore.entitlements" "$APP_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $TEAM_ID.$BUNDLE_ID" "$APP_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $TEAM_ID" "$APP_ENTITLEMENTS"
+  elif [[ "$CONFIG" == "appstore-debug" ]]; then
     # Same sandbox entitlements plus get-task-allow so the debugger can attach.
     APP_ENTITLEMENTS="$OUT_DIR/AImThinking.entitlements"
     cp "$ROOT/app/Resources/AImThinking.appstore.entitlements" "$APP_ENTITLEMENTS"
@@ -131,5 +158,20 @@ fi
 codesign "${CORE_CODESIGN_ARGS[@]}" "$MACOS/im-thinking-core"
 codesign "${APP_CODESIGN_ARGS[@]}" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
+
+if [[ "$CONFIG" == "appstore" ]]; then
+  PKG="$OUT_DIR/aIm-Thinking-$MARKETING_VERSION-$BUILD_NUMBER.pkg"
+  productbuild --component "$APP" /Applications --sign "$INSTALLER_IDENTITY" "$PKG"
+  echo "$PKG"
+  if [[ -n "${ASC_KEY_ID:-}" ]]; then
+    # CI: App Store Connect API key. altool reads AuthKey_<id>.p8 from API_PRIVATE_KEYS_DIR.
+    API_PRIVATE_KEYS_DIR="$(dirname "$ASC_KEY_P8")" \
+      xcrun altool --upload-package "$PKG" --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID" --wait
+  elif [[ -n "${APPLE_ID:-}" ]]; then
+    # Local: app-specific password stored once with: security add-generic-password -l AC_PASSWORD -s AC_PASSWORD -a <apple-id> -w
+    ALTOOL_PASSWORD="$(security find-generic-password -l "${KEYCHAIN_ITEM:-AC_PASSWORD}" -a "$APPLE_ID" -w)" \
+      xcrun altool --upload-package "$PKG" -u "$APPLE_ID" -p @env:ALTOOL_PASSWORD --wait
+  fi
+fi
 
 echo "$APP"
