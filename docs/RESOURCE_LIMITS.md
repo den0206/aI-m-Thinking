@@ -35,6 +35,10 @@ let maxKeysPerSecond = 15.0
 
 Overflow must drop non-critical observer/audio work rather than backpressure Claude or Codex.
 
+- The speed multiplier is included before the 15 keys/s cap, and jitter never shortens a playback interval below 1/15 second.
+- A reused voice drops its previous buffer; playback does not accumulate an audio backlog. Pack changes retain decoded PCM only for the current pack.
+- Zero-intensity or IDLE sessions do not keep the keycap animation running. Mute silences audio while preserving animation for current activity; monitor stop/failure clears both.
+
 ## Startup
 
 For files that already exist when monitoring begins:

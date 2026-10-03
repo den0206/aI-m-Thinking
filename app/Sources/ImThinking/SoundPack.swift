@@ -19,29 +19,23 @@ enum SoundPackID: String, CaseIterable, Identifiable {
         }
     }
 
+    // All packs share the recorded KC 1000 takes; Laptop is the unaltered recording.
     var profile: SoundProfile {
         switch self {
-        case .mechanicalClicky:
-            SoundProfile(frequency: 2_900, secondaryFrequency: 5_600, toneMix: 0.32, noiseMix: 0.68, decay: 0.014, duration: 0.055, gain: 0.56)
-        case .mechanicalThock:
-            SoundProfile(frequency: 620, secondaryFrequency: 1_350, toneMix: 0.72, noiseMix: 0.28, decay: 0.026, duration: 0.085, gain: 0.58)
-        case .laptop:
-            SoundProfile(frequency: 1_750, secondaryFrequency: 3_400, toneMix: 0.42, noiseMix: 0.58, decay: 0.012, duration: 0.045, gain: 0.42)
-        case .typewriter:
-            SoundProfile(frequency: 1_150, secondaryFrequency: 4_800, toneMix: 0.38, noiseMix: 0.62, decay: 0.022, duration: 0.075, gain: 0.66)
-        case .soft:
-            SoundProfile(frequency: 540, secondaryFrequency: 980, toneMix: 0.78, noiseMix: 0.22, decay: 0.018, duration: 0.060, gain: 0.34)
+        case .mechanicalClicky: SoundProfile(rate: 1.15, lowpass: nil, gain: 0.60)
+        case .mechanicalThock: SoundProfile(rate: 0.78, lowpass: 2_800, gain: 0.70)
+        case .laptop: SoundProfile(rate: 1.0, lowpass: nil, gain: 0.55)
+        case .typewriter: SoundProfile(rate: 0.90, lowpass: nil, gain: 0.72)
+        case .soft: SoundProfile(rate: 0.92, lowpass: 1_600, gain: 0.45)
         }
     }
 }
 
 struct SoundProfile {
-    let frequency: Double
-    let secondaryFrequency: Double
-    let toneMix: Double
-    let noiseMix: Double
-    let decay: Double
-    let duration: Double
+    /// Playback rate; below 1 is lower and longer.
+    let rate: Double
+    /// One-pole lowpass cutoff in Hz, nil to keep the recording's full brightness.
+    let lowpass: Double?
     let gain: Double
 }
 

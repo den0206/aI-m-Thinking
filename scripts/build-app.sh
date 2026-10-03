@@ -56,6 +56,7 @@ cp "$SWIFT_BIN_DIR/ImThinking" "$MACOS/ImThinking"
 cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
 chmod 755 "$MACOS/ImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
+cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

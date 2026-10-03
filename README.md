@@ -33,6 +33,8 @@ GitHub Releases から最新の `Im-Thinking-X.Y.Z.dmg` を取得し、`I'm Thin
 - THINKING / WRITING / TOOL / IDLE の状態推定
 - 活動強度に応じたキーボード音の速度変化
 - 5種類のキーボードサウンド
+- turnごとのランダムサウンド / typing速度調整
+- 活動に合わせたメニューバーのキーアニメーション
 - 音量 / Mute
 - Start at Login
 - sleep / wake 後の自動rescan

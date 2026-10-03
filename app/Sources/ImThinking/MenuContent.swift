@@ -43,9 +43,21 @@ struct MenuContent: View {
                     set: { model.selectSoundPack($0) }
                 )
             ) {
+                Text("Random").tag(SoundPackID?.none)
                 ForEach(SoundPackID.allCases) { pack in
-                    Text(pack.displayName).tag(pack)
+                    Text(pack.displayName).tag(Optional(pack))
                 }
+            }
+
+            HStack {
+                Text("Speed")
+                Slider(
+                    value: Binding(
+                        get: { model.typingSpeed },
+                        set: { model.setTypingSpeed($0) }
+                    ),
+                    in: AppModel.typingSpeedRange
+                )
             }
 
             HStack {
@@ -75,18 +87,9 @@ struct MenuContent: View {
                 )
             )
 
-            Button("Preview Sound") {
-                model.previewSound()
-            }
-            .disabled(model.muted)
-
             Divider()
 
             HStack {
-                Button("Rescan Agents") {
-                    model.rescanAgents()
-                }
-
                 Button("Restart Monitor") {
                     model.restartCore()
                 }

@@ -35,7 +35,9 @@
 ## D. Audio
 
 - [ ] 5種類のsound packを切り替えられる
-- [ ] Preview Soundが鳴る
+- [ ] sound packを選ぶとpreviewが鳴り、Mute中は鳴らない
+- [ ] Randomではturnごとにsound packが変わる
+- [ ] Speedを上げても再生が15 keys/sを超えない
 - [ ] volume sliderが反映される
 - [ ] Muteで即座に停止する
 - [ ] intensityが低いと遅く、高いと速くなる
@@ -115,6 +117,9 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 長時間smoke test中にActivity Monitor / Instrumentsで確認:
 
 - [ ] idle CPUが継続的に高くない
+- [ ] Codexの長い生成待ち（3分以上）でも途中で音が消えず、完了・中断でキーが止まる
+- [ ] 強度ゼロの古いsessionが残っていてもキーが動き続けない
+- [ ] monitor停止・故障後に音とキーが止まる
 - [ ] session終了後にfile descriptorが増え続けない
 - [ ] memory footprintが時間に比例して増え続けない
 - [ ] audio node / taskが停止後に増殖しない

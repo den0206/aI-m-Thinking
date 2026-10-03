@@ -10,9 +10,20 @@ struct ImThinkingApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra(displayName, systemImage: "brain") {
+        MenuBarExtra {
             MenuContent(model: model)
+        } label: {
+            KeycapLabel(animator: model.keyPress)
+                .accessibilityLabel(displayName)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+private struct KeycapLabel: View {
+    @ObservedObject var animator: KeyPressAnimator
+
+    var body: some View {
+        Image(nsImage: KeycapIcon.frames[animator.frame])
     }
 }

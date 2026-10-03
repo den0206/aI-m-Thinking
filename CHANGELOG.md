@@ -8,6 +8,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Added
 
+- Recorded keyboard sounds, random sound selection per turn, a speed slider, and an animated menu-bar keycap.
 - Passive Claude Code / Codex activity monitoring without wrapper commands.
 - Keyboard sound packs with activity-sensitive cadence.
 - macOS menu-bar UI, Start at Login, and sleep/wake rescan.
@@ -23,7 +24,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 - Claude idle status cannot be undone by queued transcript records across scan budgets or by a partial row completed later.
 - Codex long model-output waits remain audible up to the bounded stale-turn deadline; paginated reasoning/messages and terminal answer phases are recognized.
-- Late records cannot reopen explicitly ended turns.
+- Late records cannot reopen explicitly ended turns, and silent/idle sessions and monitor shutdown no longer leave the keycap animating.
+- Audio stays within four voices and 15 keys/s, drops queued overlap, releases inactive pack PCM, and cancels pending previews on stop.
 - Claude Code turns end on the final message's `stop_reason`; current versions no longer write `turn_duration`, so sessions previously never returned to IDLE.
 - Activity holds while the model is generating output that has not reached the transcript yet, instead of falling silent after 5 seconds.
 - Claude interruption and meta rows no longer start a new turn.
