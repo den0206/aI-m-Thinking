@@ -116,6 +116,12 @@ final class AppModel: ObservableObject {
         wakeTask?.cancel()
     }
 
+    /// Mute wins: nothing is heard, whatever is paused.
+    var menuBarState: KeycapIcon.State? {
+        if muted { return .muted }
+        return pausedSessions.isEmpty ? nil : .paused
+    }
+
     var requiresFolderAuthorization: Bool {
         distributionMode == .appStore
     }
@@ -332,10 +338,10 @@ final class AppModel: ObservableObject {
     }
 
     private func updateGlobalAudio() {
-        // The icon animates even when muted.
         let monitored = activities.filter { !pausedSessions.contains($0.key) }.map(\.value)
         let busy = monitored.filter { $0.phase != "idle" && $0.intensity >= 0.06 }
-        keyPress.update(active: !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
+        // A still keycap printed "muted" reads as silenced.
+        keyPress.update(active: !muted && !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
 
         for service in AgentService.allCases {
             let agent = service.rawValue

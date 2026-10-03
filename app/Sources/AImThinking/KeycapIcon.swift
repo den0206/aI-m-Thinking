@@ -7,7 +7,25 @@ import AppKit
 enum KeycapIcon {
     /// Travel frames from released (0) to bottomed out (last), in half-point
     /// steps so each frame lands on a Retina pixel.
-    static let frames = (0...4).map { make(label: label, sink: CGFloat($0) * 0.5) }
+    static let frames = makeFrames(label: label)
+
+    /// A state printed on the keycap in place of `label`, in debug builds too.
+    enum State: String, CaseIterable {
+        case muted
+        case paused
+    }
+
+    private static let stateFrames = Dictionary(uniqueKeysWithValues: State.allCases.map {
+        ($0, makeFrames(label: $0.rawValue))
+    })
+
+    private static func makeFrames(label: String) -> [NSImage] {
+        (0...4).map { make(label: label, sink: CGFloat($0) * 0.5) }
+    }
+
+    static func image(frame: Int, state: State?) -> NSImage {
+        state.flatMap { stateFrames[$0]?[frame] } ?? frames[frame]
+    }
 
     #if DEBUG
     private static let label = "debug"  // tells debug and release apart in the menu bar

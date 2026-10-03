@@ -19,7 +19,7 @@ struct AImThinkingApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            KeycapLabel(animator: model.keyPress)
+            KeycapLabel(animator: model.keyPress, model: model)
                 .accessibilityLabel(displayName)
         }
         .menuBarExtraStyle(.window)
@@ -36,8 +36,10 @@ struct AImThinkingApp: App {
 
 private struct KeycapLabel: View {
     @ObservedObject var animator: KeyPressAnimator
+    @ObservedObject var model: AppModel
 
     var body: some View {
-        Image(nsImage: KeycapIcon.frames[animator.frame])
+        Image(nsImage: KeycapIcon.image(frame: animator.frame, state: model.menuBarState))
+            .accessibilityValue(model.menuBarState?.rawValue.capitalized ?? "")
     }
 }

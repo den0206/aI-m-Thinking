@@ -6,6 +6,10 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ## [Unreleased]
 
+### Changed
+
+- While muted, the menu-bar keycap reads "muted" and stops striking; while any session is paused it reads "paused".
+
 ### Fixed
 
 - With more than 64 tracked sessions, idle sessions are no longer reopened and closed every few seconds.

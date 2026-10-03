@@ -57,7 +57,8 @@ func activityAnimationStopsForIdleSilenceAndMonitorShutdown() async throws {
     let suite = "im-thinking-test-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
-    defaults.set(true, forKey: "muted")
+    // Nearly silent rather than muted: mute stops the keycap animation.
+    defaults.set(0.01, forKey: "volume")
     let model = AppModel(defaults: defaults, startMonitoring: false)
 
     func activity(_ session: Int, _ phase: String, _ intensity: Double) throws -> CoreMessage {
@@ -69,7 +70,13 @@ func activityAnimationStopsForIdleSilenceAndMonitorShutdown() async throws {
     }
 
     model.handle(try activity(1, "thinking", 0.4))
-    #expect(model.keyPress.isAnimating) // Mute does not hide activity.
+    #expect(model.keyPress.isAnimating)
+    model.setMuted(true)
+    #expect(!model.keyPress.isAnimating)
+    #expect(model.menuBarState == .muted)
+    model.setMuted(false)
+    #expect(model.keyPress.isAnimating)
+    #expect(model.menuBarState == nil)
     try await Task.sleep(for: .milliseconds(20))
     model.handle(try activity(1, "idle", 0.3)) // Even a residual tail is idle.
     #expect(!model.keyPress.isAnimating)
@@ -214,7 +221,8 @@ func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
     let suite = "im-thinking-test-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
-    defaults.set(true, forKey: "muted")
+    // Nearly silent rather than muted: mute stops the keycap animation.
+    defaults.set(0.01, forKey: "volume")
     let model = AppModel(defaults: defaults, startMonitoring: false)
     func activity(_ session: Int, _ agent: String, _ intensity: Double) throws -> CoreMessage {
         let data = try JSONSerialization.data(withJSONObject: [
@@ -231,6 +239,10 @@ func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
     #expect(model.claudeState == "Paused")
     #expect(model.codexState == "Thinking")
     #expect(model.keyPress.isAnimating) // Codex continues.
+    #expect(model.menuBarState == .paused)
+    model.setMuted(true)
+    #expect(model.menuBarState == .muted) // Mute wins over pause.
+    model.setMuted(false)
     model.handle(try activity(1, "claude", 1))
     #expect(model.claudeState == "Paused")
     // A session that starts after the pause is monitored and can be paused too.
@@ -241,6 +253,7 @@ func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
     model.resumeSessions(for: .claude)
     #expect(model.pausedSessions.isEmpty)
     #expect(model.claudeState == "Idle")
+    #expect(model.menuBarState == nil)
     model.handle(try activity(1, "claude", 0.4))
     #expect(model.claudeState == "Thinking")
     model.pauseSessions(for: .claude)
@@ -258,4 +271,17 @@ func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
     #expect(model.claudeState == "Thinking") // The unpaused session continues.
     model.stopCore()
     #expect(model.pausedSessions.isEmpty)
+}
+
+@Test @MainActor
+func stateKeycapsArePrintedTemplatesOfTheSameHeight() {
+    for state in KeycapIcon.State.allCases {
+        for frame in KeycapIcon.frames.indices {
+            let image = KeycapIcon.image(frame: frame, state: state)
+            #expect(image !== KeycapIcon.frames[frame])
+            #expect(image.isTemplate)
+            #expect(image.size.height == KeycapIcon.frames[frame].size.height)
+        }
+    }
+    #expect(KeycapIcon.image(frame: 2, state: nil) === KeycapIcon.frames[2])
 }

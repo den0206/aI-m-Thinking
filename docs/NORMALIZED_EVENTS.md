@@ -69,7 +69,7 @@ Parallel tools are tracked by key; a single boolean is not sufficient.
 
 State and intensity are independent. A session can remain logically THINKING while sound intensity decays to zero.
 
-Explicit `TurnEnd` clears intensity immediately. Content, tool, and usage events received after an explicit end cannot reopen the turn until `TurnStart`. Stale-turn expiration is inferred from silence and still permits fresh evidence from the same session. The keycap animates only for non-IDLE activity at or above the audio intensity threshold, including while muted.
+Explicit `TurnEnd` clears intensity immediately. Content, tool, and usage events received after an explicit end cannot reopen the turn until `TurnStart`. Stale-turn expiration is inferred from silence and still permits fresh evidence from the same session. The keycap animates only for non-IDLE activity at or above the audio intensity threshold. While muted it stays still and reads `muted`; while any session is paused it reads `paused`. Debug builds read `debug` only when neither applies.
 
 ## Privacy rule
 
