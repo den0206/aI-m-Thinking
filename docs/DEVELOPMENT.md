@@ -44,6 +44,14 @@ CodeLLDB は `.app` 内の実行ファイルを直接起動します。
 .build/debug/aI'm Thinking Debug.app/Contents/MacOS/AImThinking
 ```
 
+App Store 版の動作（サンドボックス、フォルダ許可、初回ウィンドウ）を確かめるときは `Run aI'm Thinking App Store Debug.app` を選びます。preLaunchTask は `CONFIG=appstore-debug ./scripts/build-app.sh` です。App Store 用の entitlements に `get-task-allow` を足して署名するので、debugger でアタッチできます。`appstore-smoke` は CI の検査用で、release ビルドのうえアタッチできないため F5 には使えません。
+
+設定は bundle ID `com.den0206.AImThinking.appstore-debug` のコンテナに保存されます。初回ウィンドウやフォルダ許可をやり直すときは、アプリを終了してから次を実行します。
+
+```bash
+rm -rf ~/Library/Containers/com.den0206.AImThinking.appstore-debug
+```
+
 SwiftUIだけを `swift run` するのではなくApp bundleを組み立てる理由:
 
 - `Info.plist` を本番と同じ条件で使える

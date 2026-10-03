@@ -87,6 +87,8 @@ The debug build is kept separate from the release build.
 | Bundle ID | `com.den0206.ImThinking` | `com.den0206.ImThinking.debug` |
 | Build | release | debug |
 
+To debug the App Store build (sandbox and folder access), select **Run aI'm Thinking App Store Debug.app** and press F5.
+
 To debug the Rust core on its own, select **Run Rust Core** and press F5.
 
 Details: [Development Guide](docs/DEVELOPMENT.md)

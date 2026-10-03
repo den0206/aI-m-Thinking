@@ -19,6 +19,13 @@
       }
     },
     {
+      "label": "Build aI'm Thinking App Store Debug.app",
+      "type": "shell",
+      "command": "CONFIG=appstore-debug ./scripts/build-app.sh",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
       "label": "Build Rust Core",
       "type": "shell",
       "command": "cargo build --manifest-path core/Cargo.toml",

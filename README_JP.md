@@ -87,6 +87,8 @@ Debug版は本番版と分離されています。
 | Bundle ID | `com.den0206.AImThinking` | `com.den0206.AImThinking.debug` |
 | Build | release | debug |
 
+App Store 版（サンドボックス・フォルダ許可）を確かめる場合は **Run aI'm Thinking App Store Debug.app** を選択してF5します。
+
 Rust Coreを単体で追う場合は **Run Rust Core** を選択してF5します。
 
 詳細: [Development Guide](docs/DEVELOPMENT.md)

@@ -29,8 +29,16 @@ case "$CONFIG" in
     SWIFT_CONFIG="release"
     DISTRIBUTION="app-store"
     ;;
+  appstore-debug)
+    # App Store mode (sandbox, folder grants) in a debug build lldb can attach to.
+    APP_NAME="aI'm Thinking App Store Debug"
+    BUNDLE_ID="com.den0206.AImThinking.appstore-debug"
+    CORE_DIR="debug"
+    SWIFT_CONFIG="debug"
+    DISTRIBUTION="app-store"
+    ;;
   *)
-    echo "CONFIG must be 'debug', 'release', or 'appstore-smoke'" >&2
+    echo "CONFIG must be 'debug', 'release', 'appstore-smoke', or 'appstore-debug'" >&2
     exit 2
     ;;
 esac
@@ -105,10 +113,17 @@ fi
 CORE_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 APP_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 
-if [[ "$CONFIG" == "appstore-smoke" ]]; then
+if [[ "$CONFIG" == appstore-* ]]; then
+  APP_ENTITLEMENTS="$ROOT/app/Resources/AImThinking.appstore.entitlements"
+  if [[ "$CONFIG" == "appstore-debug" ]]; then
+    # Same sandbox entitlements plus get-task-allow so the debugger can attach.
+    APP_ENTITLEMENTS="$OUT_DIR/AImThinking.entitlements"
+    cp "$ROOT/app/Resources/AImThinking.appstore.entitlements" "$APP_ENTITLEMENTS"
+    /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" "$APP_ENTITLEMENTS"
+  fi
   CORE_CODESIGN_ARGS+=(--identifier "$BUNDLE_ID.core")
   CORE_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/im-thinking-core.appstore.entitlements")
-  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/AImThinking.appstore.entitlements")
+  APP_CODESIGN_ARGS+=(--entitlements "$APP_ENTITLEMENTS")
 elif [[ "$CONFIG" == "debug" ]]; then
   APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/AImThinking.debug.entitlements")
 fi
