@@ -23,6 +23,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Fixed
 
+- Metadata reconciliation recovers Codex updates when macOS file notifications do not arrive, without replaying startup history.
+- Old core process callbacks cannot disconnect a restarted monitor; replacing or truncating a transcript clears its previous activity and parser state.
 - Silent sessions no longer leave Thinking displayed in the agent tile.
 - Claude idle status cannot be undone by queued transcript records across scan budgets or by a partial row completed later.
 - Codex long model-output waits remain audible up to the bounded stale-turn deadline; paginated reasoning/messages and terminal answer phases are recognized.
@@ -39,7 +41,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - JSONL records are parsed through a buffered reader instead of one `read()` per byte.
 - Session files older than the startup baseline budget are tracked once they are appended to.
 - A creation event for a file that existed before monitoring no longer replays its history.
-- Activity updates are capped at 10 Hz per session, the monitor sleeps when nothing is active, and the core event queue is bounded.
+- Activity updates are capped at 10 Hz per session, the monitor sleeps between events and bounded metadata reconciliation, and the core event queue is bounded.
 
 ## [0.1.0] - Unreleased
 

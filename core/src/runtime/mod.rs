@@ -22,6 +22,8 @@ const MAX_CONFIGURED_ROOTS_PER_AGENT: usize = 4;
 const MAX_DISCOVERY_ENTRIES: usize = 4096;
 const MAX_ACTIVITY_QUEUE: usize = 256;
 const ACTIVITY_INTERVAL: Duration = Duration::from_millis(100);
+// Native notifications can be unavailable even after a successful watch.
+const RECONCILE_INTERVAL: Duration = Duration::from_secs(3);
 /// Intensities below this are reported as exact silence.
 const ACTIVITY_EPSILON: f32 = 0.005;
 /// How long a session keeps being sampled after its last event. Covers the
@@ -196,6 +198,7 @@ struct MonitorRuntime<W: io::Write + Send + 'static> {
     started: Instant,
     started_wall: SystemTime,
     next_handle: u32,
+    next_reconcile_at: Duration,
     #[cfg(test)]
     clock_skew: Duration,
 }
@@ -233,6 +236,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
             started: Instant::now(),
             started_wall: SystemTime::now(),
             next_handle: 1,
+            next_reconcile_at: RECONCILE_INTERVAL,
             #[cfg(test)]
             clock_skew: Duration::ZERO,
         }
@@ -273,6 +277,12 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                     session.dirty = true;
                 }
                 self.error("ACT4004", "observer");
+                self.reconcile_files();
+            }
+
+            if self.now() >= self.next_reconcile_at {
+                self.reconcile_files();
+                self.next_reconcile_at = self.now() + RECONCILE_INTERVAL;
             }
 
             self.process_dirty_sessions();
@@ -283,7 +293,10 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
 
     fn handle_command(&mut self, command: MonitorCommand) {
         match command {
-            MonitorCommand::Rescan => self.rescan_roots(),
+            MonitorCommand::Rescan => {
+                self.reconcile_files();
+                self.rescan_roots();
+            }
             MonitorCommand::Shutdown => {}
         }
     }
@@ -293,7 +306,48 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
         self.sessions
             .values()
             .filter_map(|session| session.next_wakeup(now))
+            .chain(std::iter::once(self.next_reconcile_at.saturating_sub(now)))
             .min()
+    }
+
+    /// Reconcile metadata so missing native notifications cannot strand a
+    /// baseline or an active session. Existing EOF baselines remain intact.
+    fn reconcile_files(&mut self) {
+        for index in 0..self.roots.len() {
+            let agent = self.roots[index].kind;
+            let root = self.roots[index].path.clone();
+            for (path, metadata) in discover_jsonl(&root) {
+                if let Some(session) = self.sessions.get(&path) {
+                    if session.cursor.metadata_changed(&metadata) {
+                        self.mark_modified(path, agent);
+                    }
+                } else if let Some(baseline) = self.baselines.get(&path) {
+                    if baseline.cursor.metadata_changed(&metadata) {
+                        eprintln!("IM_DIAGNOSTIC agent={} notification_missed", agent.as_str());
+                        self.mark_modified(path, agent);
+                    }
+                } else {
+                    self.open_new_session(path, agent);
+                }
+            }
+        }
+        let removed: Vec<_> = self
+            .sessions
+            .keys()
+            .chain(self.baselines.keys())
+            .filter(|path| !path.exists())
+            .cloned()
+            .collect();
+        for path in removed {
+            self.close_path(&path);
+        }
+        if self
+            .roots
+            .iter()
+            .any(|root| root.watcher.is_none() && root.path.is_dir())
+        {
+            self.rescan_roots();
+        }
     }
 
     fn rescan_roots(&mut self) {
@@ -452,6 +506,7 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
     }
 
     fn mark_modified(&mut self, path: PathBuf, agent: AgentKind) {
+        let now = self.now();
         if let Some(session) = self.sessions.get_mut(&path) {
             if let Ok(reopened) = File::open(&path) {
                 match session.cursor.refresh(&reopened) {
@@ -464,6 +519,9 @@ impl<W: io::Write + Send + 'static> MonitorRuntime<W> {
                         session.file = reopened;
                         session.dirty = false;
                         session.interrupted_through = None;
+                        session.parser = Parser::new(agent);
+                        session.activity.apply(&NormalizedEvent::TurnEnd, now);
+                        session.last_event_at = now;
                     }
                     Err(_) => {}
                 }
@@ -840,6 +898,7 @@ fn agent_index(agent: AgentKind) -> usize {
 }
 
 fn discover_jsonl(root: &Path) -> Vec<(PathBuf, Metadata)> {
+    // ponytail: capped traversal; rotate scan batches if large archives need notification-free monitoring.
     let mut found = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     let mut visited = 0usize;
@@ -855,9 +914,10 @@ fn discover_jsonl(root: &Path) -> Vec<(PathBuf, Metadata)> {
         };
 
         for entry in entries.flatten() {
-            if found.len() >= MAX_DISCOVERY_ENTRIES {
+            if visited >= MAX_DISCOVERY_ENTRIES {
                 break;
             }
+            visited += 1;
 
             let path = entry.path();
             let Ok(metadata) = entry.metadata() else {
@@ -1046,6 +1106,93 @@ mod tests {
     const THINKING: &str = r#"{"type":"assistant","message":{"content":[{"type":"thinking"}]}}"#;
 
     #[test]
+    fn reconciliation_detects_codex_appends_without_notifications() {
+        let mut fixture = Fixture::new();
+        fixture.runtime.roots[0].kind = AgentKind::Codex;
+        let path = fixture.path("codex.jsonl");
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        );
+        fixture.runtime.rescan_roots();
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        assert!(!fixture.runtime.sessions.contains_key(&path));
+
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        );
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        fixture.runtime.emit_activity();
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+
+        append(
+            &path,
+            r#"{"type":"event_msg","payload":{"type":"task_complete"}}"#,
+        );
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        fixture.runtime.emit_activity();
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        assert_eq!(
+            fixture.output.take_activity().last().unwrap()["phase"],
+            "idle"
+        );
+        fs::remove_file(&path).unwrap();
+        fixture.runtime.reconcile_files();
+        assert!(fixture.runtime.sessions.is_empty());
+    }
+
+    #[test]
+    fn reconciliation_discovers_new_session_without_replaying_existing_history() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("new.jsonl");
+        append(&path, USER_TURN);
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+    }
+
+    #[test]
+    fn replaced_transcript_clears_old_activity_and_parser_state() {
+        let mut fixture = Fixture::new();
+        let path = fixture.path("replace.jsonl");
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Create, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+        let replacement = fixture.path("replacement.tmp");
+        fs::write(&replacement, b"{}\n").unwrap();
+        fs::rename(replacement, &path).unwrap();
+        fixture.runtime.reconcile_files();
+        fixture.runtime.process_dirty_sessions();
+        fixture.runtime.emit_activity();
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Idle
+        );
+        append(&path, USER_TURN);
+        fixture.change(ChangeKind::Modify, &path);
+        assert_eq!(
+            fixture.session(&path).activity.state().phase(),
+            AgentState::Thinking
+        );
+    }
+
+    #[test]
     fn discovery_only_returns_jsonl_files() {
         let root = std::env::temp_dir().join(format!("im-thinking-runtime-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
@@ -1187,7 +1334,11 @@ mod tests {
         let activity = fixture.output.take_activity();
         assert_eq!(activity.len(), 1);
         assert_eq!(activity[0]["phase"], "idle");
-        assert_eq!(fixture.runtime.next_wakeup(), None);
+        assert_eq!(
+            fixture.session(&path).next_wakeup(fixture.runtime.now()),
+            None
+        );
+        assert!(fixture.runtime.next_wakeup().unwrap() <= RECONCILE_INTERVAL);
     }
 
     #[test]
@@ -1400,7 +1551,11 @@ mod tests {
                 .all(|m| m["phase"] == "idle" && m["intensity"] == 0.0)
         );
         fixture.advance(SIGNAL_SETTLE);
-        assert_eq!(fixture.runtime.next_wakeup(), None);
+        assert_eq!(
+            fixture.session(&path).next_wakeup(fixture.runtime.now()),
+            None
+        );
+        assert!(fixture.runtime.next_wakeup().unwrap() <= RECONCILE_INTERVAL);
     }
 
     #[test]

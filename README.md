@@ -93,6 +93,8 @@ Details: [Development Guide](docs/DEVELOPMENT.md)
 
 For bug reports, reproduce the issue and click **Copy Diagnostic Log** in the app menu. Share the copied text. The log keeps the latest 4,000 entries in memory, including session state, turn-end events, and read errors. Conversation content, tool arguments/output, and file paths are excluded. Logs are cleared when the app exits.
 
+A bounded metadata scan runs every 3 seconds to recover missing macOS notifications. Existing transcripts keep their startup EOF baselines; only new appended content is processed.
+
 ### CLI
 
 ```bash

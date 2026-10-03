@@ -89,6 +89,10 @@ impl FileCursor {
         self.scan_offset
     }
 
+    pub fn metadata_changed(&self, metadata: &Metadata) -> bool {
+        FileIdentity::from_metadata(metadata) != self.identity || metadata.len() != self.scan_offset
+    }
+
     pub fn committed_offset(&self) -> u64 {
         self.committed_offset
     }
