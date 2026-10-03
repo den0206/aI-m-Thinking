@@ -101,7 +101,7 @@ Core単体起動時はstdin/stdoutのnewline JSON IPCで動きます。最初に
 configure例:
 
 ```json
-{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"extra_roots":[]}
+{"v":1,"type":"configure","agents":{"claude":true,"codex":true},"roots":{"claude":[{"path":"/Users/example/.claude/projects","bookmark":null}],"codex":[]}}
 ```
 
 Parser / Activity Engineのロジック確認ではRust testsを優先します。
