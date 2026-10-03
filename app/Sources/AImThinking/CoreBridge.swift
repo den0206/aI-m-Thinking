@@ -15,7 +15,8 @@ enum CoreStatus: Equatable {
         case .handshaking: "Connecting"
         case .monitoring: "Monitoring"
         case .stopped: "Stopped"
-        case .failed(let code): "Error \(code)"
+        case .failed(let code):
+            code == "CORE_RETRY_LIMIT" ? "Monitor failed — restart to retry" : "Error \(code)"
         }
     }
 }
@@ -33,6 +34,11 @@ final class CoreBridge {
     private var intentionalStop = false
     private var generation = 0
     private var restartTask: Task<Void, Never>?
+    private var handshakeTask: Task<Void, Never>?
+    private var retryCount = 0
+    private var monitoringSince: ContinuousClock.Instant?
+    private let handshakeTimeout: Duration
+    private let retryDelay: Duration
     private var diagnosticLines: [String] = []
     private var diagnosticBuffer = Data()
     private var lastActivity: [UInt32: String] = [:]
@@ -61,9 +67,12 @@ final class CoreBridge {
         if diagnosticBuffer.count > 64 * 1024 { diagnosticBuffer.removeAll() }
     }
 
-    init(rootProvider: any AgentRootProviding = DirectAgentRootProvider(), executableURL: URL? = nil) {
+    init(rootProvider: any AgentRootProviding = DirectAgentRootProvider(), executableURL: URL? = nil,
+         handshakeTimeout: Duration = .seconds(5), retryDelay: Duration = .seconds(1)) {
         self.rootProvider = rootProvider
         self.executableURL = executableURL
+        self.handshakeTimeout = handshakeTimeout
+        self.retryDelay = retryDelay
     }
 
     func start() {
@@ -126,7 +135,7 @@ final class CoreBridge {
                 self.input = nil
                 self.outputBuffer.removeAll(keepingCapacity: false)
                 if !self.intentionalStop {
-                    self.onStatus?(.stopped)
+                    self.recover("CORE_EXIT")
                 }
             }
         }
@@ -136,16 +145,23 @@ final class CoreBridge {
             self.process = process
             input = stdinPipe.fileHandleForWriting
             onStatus?(.handshaking)
+            handshakeTask = Task { @MainActor [weak self, handshakeTimeout] in
+                try? await Task.sleep(for: handshakeTimeout)
+                guard !Task.isCancelled, let self, self.generation == generation else { return }
+                self.recover("CORE_TIMEOUT")
+            }
         } catch {
             stdoutPipe.fileHandleForReading.readabilityHandler = nil
             stderrPipe.fileHandleForReading.readabilityHandler = nil
             log("monitor launch failed")
-            onStatus?(.failed("CORE_LAUNCH"))
+            recover("CORE_LAUNCH")
         }
     }
 
     func restart() {
         stop(force: true)
+        retryCount = 0
+        monitoringSince = nil
 
         restartTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(200))
@@ -165,18 +181,45 @@ final class CoreBridge {
     func stop(force: Bool = false) {
         restartTask?.cancel()
         restartTask = nil
+        handshakeTask?.cancel()
+        handshakeTask = nil
         generation &+= 1
         log("monitor stop force=\(force)")
         intentionalStop = true
         send(["v": 1, "type": "shutdown"])
 
-        guard let process else { return }
-        if force, process.isRunning {
+        if let process, force, process.isRunning {
             process.terminate()
+            // Do not leave a hung helper behind when it ignores termination.
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+            }
         }
         self.process = nil
         input = nil
         onStatus?(.stopped)
+    }
+
+    private func recover(_ code: String) {
+        if let monitoringSince, monitoringSince.duration(to: .now) >= .seconds(60) {
+            retryCount = 0
+        }
+        monitoringSince = nil
+        stop(force: true)
+        log("monitor failure code=\(code) retry=\(retryCount)")
+        guard retryCount < 3 else {
+            onStatus?(.failed("CORE_RETRY_LIMIT"))
+            return
+        }
+        retryCount += 1
+        onStatus?(.failed(code))
+        let delay = retryDelay * retryCount
+        restartTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            self?.start()
+        }
     }
 
     private func consume(_ data: Data) {
@@ -184,7 +227,7 @@ final class CoreBridge {
 
         guard outputBuffer.count <= 64 * 1024 else {
             outputBuffer.removeAll(keepingCapacity: false)
-            onStatus?(.failed("IPC_BUFFER"))
+            recover("IPC_BUFFER")
             return
         }
 
@@ -200,7 +243,9 @@ final class CoreBridge {
                 continue
             }
 
+            let currentGeneration = generation
             handle(message)
+            if generation != currentGeneration { return }
         }
     }
 
@@ -216,7 +261,7 @@ final class CoreBridge {
             }
         }
         guard message.version == 1 else {
-            onStatus?(.failed("IPC1001"))
+            recover("IPC1001")
             return
         }
 
@@ -233,10 +278,14 @@ final class CoreBridge {
                 ]
             ])
         case "ready":
+            handshakeTask?.cancel()
+            handshakeTask = nil
+            monitoringSince = .now
             onStatus?(.monitoring)
         case "error":
             if message.recoverable == false {
-                onStatus?(.failed(message.code ?? "CORE"))
+                recover(message.code ?? "CORE")
+                return
             }
         default:
             break
@@ -257,7 +306,7 @@ final class CoreBridge {
         do {
             try input.write(contentsOf: data)
         } catch {
-            onStatus?(.failed("IPC_WRITE"))
+            if !intentionalStop { recover("IPC_WRITE") }
         }
     }
 

@@ -82,6 +82,7 @@ If any aI'm Thinking component fails:
 - Codex remains unaffected.
 - Monitoring/audio may degrade or stop.
 - A watcher/parser/audio error alone does not terminate the agent.
+- Core launch, exit, connection timeout, and fatal IPC failures trigger at most three retries, delayed by 1, 2, and 3 seconds. The connection deadline is 5 seconds. A connection that stays ready for 60 seconds resets the retry budget on its next failure; manual restart resets it immediately. Manual stop cancels all pending retries and connection deadlines. A helper ignoring termination is killed after a 1-second grace period during forced restart.
 
 ## Privacy
 

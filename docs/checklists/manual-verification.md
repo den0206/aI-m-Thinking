@@ -129,6 +129,7 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 - [ ] audio node / taskが停止後に増殖しない
 - [ ] 監視フォルダの削除・アクセス失敗がAgent欄に表示され、復旧後に監視中へ戻る
 - [ ] 直接配布版のAgent Foldersで保存先を変更でき、再起動後も保持され、Resetで既定値へ戻る
+- [ ] Coreの異常終了から自動復旧し、連続失敗では3回の再試行後に停止する
 - [ ] 4,096エントリを超える履歴でも探索が進み、直近のファイルへの通知なしの追記が検知され、古い履歴が繰り返し開き直されない
 
 数値上限の正本: [RESOURCE_LIMITS.md](../RESOURCE_LIMITS.md)

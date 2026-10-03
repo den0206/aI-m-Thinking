@@ -90,3 +90,72 @@ func observerFailureClearsOnlyAffectedActivityAndExplainsRecovery() throws {
     #expect(model.observerProblem(for: .codex) == nil)
     model.stopCore()
 }
+
+private func makeCore(_ body: String) throws -> URL {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let executable = directory.appending(path: "fake-core")
+    try ("#!/bin/sh\n" + body).write(to: executable, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+    return executable
+}
+
+@Test @MainActor
+func crashedCoreRecoversAndCompletedHandshakeDoesNotTimeOut() async throws {
+    let executable = try makeCore(#"""
+    attempts="$(dirname "$0")/attempts"
+    printf '.\n' >> "$attempts"
+    if [ "$(wc -l < "$attempts")" -eq 1 ]; then exit 1; fi
+    printf '%s\n' '{"v":1,"type":"hello"}'
+    read -r command
+    printf '%s\n' '{"v":1,"type":"ready"}'
+    while read -r command; do
+        case "$command" in *shutdown*) exit 0 ;; esac
+    done
+    """#)
+    defer { try? FileManager.default.removeItem(at: executable.deletingLastPathComponent()) }
+    let bridge = CoreBridge(executableURL: executable, handshakeTimeout: .milliseconds(500), retryDelay: .milliseconds(30))
+    var status = CoreStatus.stopped
+    bridge.onStatus = { status = $0 }
+    bridge.start()
+    defer { bridge.stop(force: true) }
+    for _ in 0..<150 where status != .monitoring {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(status == .monitoring)
+    try await Task.sleep(for: .milliseconds(600))
+    #expect(status == .monitoring)
+    #expect(bridge.diagnosticLog.contains("code=CORE_EXIT"))
+    let attempts = try String(contentsOf: executable.deletingLastPathComponent().appending(path: "attempts"), encoding: .utf8)
+    #expect(attempts.split(separator: "\n").count == 2)
+}
+
+@Test @MainActor
+func handshakeTimeoutRetriesAreBoundedAndManualStopCancelsRetry() async throws {
+    // Never announces hello; unlike sleep, read exits immediately on shutdown/EOF.
+    let executable = try makeCore(#"""
+    printf '.\n' >> "$(dirname "$0")/attempts"
+    while read -r command; do
+        case "$command" in *shutdown*) exit 0 ;; esac
+    done
+    """#)
+    defer { try? FileManager.default.removeItem(at: executable.deletingLastPathComponent()) }
+    let bridge = CoreBridge(executableURL: executable, handshakeTimeout: .milliseconds(500), retryDelay: .milliseconds(30))
+    var status = CoreStatus.stopped
+    bridge.onStatus = { status = $0 }
+    bridge.start()
+    defer { bridge.stop(force: true) }
+    for _ in 0..<300 where status != .failed("CORE_RETRY_LIMIT") {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(status == .failed("CORE_RETRY_LIMIT"))
+    #expect(bridge.diagnosticLog.contains("code=CORE_TIMEOUT"))
+    let attemptsURL = executable.deletingLastPathComponent().appending(path: "attempts")
+    let attempts = try String(contentsOf: attemptsURL, encoding: .utf8)
+    #expect(attempts.split(separator: "\n").count == 4)
+    bridge.restart()
+    bridge.stop(force: true)
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(status == .stopped)
+    #expect(try String(contentsOf: attemptsURL, encoding: .utf8) == attempts)
+}
