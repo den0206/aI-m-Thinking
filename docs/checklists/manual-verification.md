@@ -5,15 +5,15 @@
 ## A. Debug bundle
 
 - [ ] `CONFIG=debug ./scripts/build-app.sh` が成功する
-- [ ] `.build/debug/I'm Thinking Debug.app` が生成される
-- [ ] bundle id が `com.den0206.ImThinking.debug`
-- [ ] VS Code / Cursorで `Run I'm Thinking Debug.app` をF5起動できる
+- [ ] `.build/debug/aI'm Thinking Debug.app` が生成される
+- [ ] bundle id が `com.den0206.AImThinking.debug`
+- [ ] VS Code / Cursorで `Run aI'm Thinking Debug.app` をF5起動できる
 - [ ] MenuBarExtraだけが表示され、通常のDock appとして常駐しない
 - [ ] Debug版とRelease版を同時に識別できる
 
 ## B. Claude Code
 
-- [ ] I’m Thinking起動後、通常の `claude` だけで監視される
+- [ ] aI'm Thinking起動後、通常の `claude` だけで監視される
 - [ ] wrapper / alias / hook追加が不要
 - [ ] turn開始でTHINKINGへ遷移する
 - [ ] text生成でWRITINGへ遷移する
@@ -24,7 +24,7 @@
 
 ## C. Codex
 
-- [ ] I’m Thinking起動後、通常の `codex` だけで監視される
+- [ ] aI'm Thinking起動後、通常の `codex` だけで監視される
 - [ ] wrapper / alias / hook追加が不要
 - [ ] reasoning/activity eventでTHINKINGへ遷移する
 - [ ] outputでWRITINGへ遷移する
@@ -61,9 +61,9 @@
 ## G. Start at Login
 
 - [ ] Start at LoginをONにできる
-- [ ] 再ログイン後にI’m Thinkingが起動する
+- [ ] 再ログイン後にaI'm Thinkingが起動する
 - [ ] OFFにすると登録解除される
-- [ ] shell rc / LaunchAgent plistをI’m Thinkingが生成しない
+- [ ] shell rc / LaunchAgent plistをaI'm Thinkingが生成しない
 - [ ] Debug版の操作がRelease版の登録を意図せず変更しない
 
 ## H. Privacy / fail-open
@@ -79,14 +79,14 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 - [ ] Codex configが変更されない
 - [ ] `.claude/` / `.codex/` project設定を追加しない
 - [ ] `.zshrc` / `.bashrc` を変更しない
-- [ ] prompt / response / reasoning / source codeをI’m Thinkingが保存しない
-- [ ] I’m Thinkingをforce quitしてもClaude/Codexが継続動作する
+- [ ] prompt / response / reasoning / source codeをaI'm Thinkingが保存しない
+- [ ] aI'm Thinkingをforce quitしてもClaude/Codexが継続動作する
 
 ## I. Release bundle
 
-- [ ] `.build/release/I'm Thinking.app` が生成される
+- [ ] `.build/release/aI'm Thinking.app` が生成される
 - [ ] `LSMinimumSystemVersion = 26.0`
-- [ ] bundle id = `com.den0206.ImThinking`
+- [ ] bundle id = `com.den0206.AImThinking`
 - [ ] Rust Coreが `Contents/MacOS/im-thinking-core` に同梱される
 - [ ] `codesign --verify --strict` が成功する
 
@@ -109,7 +109,7 @@ shasum ~/.codex/config.toml 2>/dev/null || true
 - [ ] 必須Secrets不足時にReleaseを公開しない
 - [ ] test failure時にReleaseを公開しない
 - [ ] same repositoryのGitHub ReleasesへDMGが添付される
-- [ ] Release titleが `I'm Thinking X.Y.Z`
+- [ ] Release titleが `aI'm Thinking X.Y.Z`
 - [ ] 過去Releaseを上書きしない
 
 ## L. Resource inspection

@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
-@testable import ImThinking
+@testable import AImThinking
 
 @Test
 func fiveBuiltInSoundPacksExist() {

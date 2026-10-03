@@ -8,7 +8,7 @@ fi
 
 APP_PATH="$1"
 DMG_PATH="$2"
-DEFAULT_VOLUME_NAME="I'm Thinking"
+DEFAULT_VOLUME_NAME="aI'm Thinking"
 VOLUME_NAME="${3:-$DEFAULT_VOLUME_NAME}"
 
 if [[ ! -d "$APP_PATH" ]]; then

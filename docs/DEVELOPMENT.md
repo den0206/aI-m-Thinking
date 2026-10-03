@@ -1,6 +1,6 @@
 # Development Guide
 
-I’m Thinking のローカル開発、VS Code / Cursor デバッグ、Swift/Rust Coreの確認手順をまとめます。
+aI'm Thinking のローカル開発、VS Code / Cursor デバッグ、Swift/Rust Coreの確認手順をまとめます。
 
 ## 1. Required toolchain
 
@@ -24,7 +24,7 @@ cargo --version
 
 VS Code / Cursor でリポジトリルートを開きます。
 
-Run and Debug で `Run I'm Thinking Debug.app` を選び、F5 を実行します。
+Run and Debug で `Run aI'm Thinking Debug.app` を選び、F5 を実行します。
 
 preLaunchTask:
 
@@ -35,13 +35,13 @@ CONFIG=debug ./scripts/build-app.sh
 生成物:
 
 ```text
-.build/debug/I'm Thinking Debug.app
+.build/debug/aI'm Thinking Debug.app
 ```
 
 CodeLLDB は `.app` 内の実行ファイルを直接起動します。
 
 ```text
-.build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking
+.build/debug/aI'm Thinking Debug.app/Contents/MacOS/AImThinking
 ```
 
 SwiftUIだけを `swift run` するのではなくApp bundleを組み立てる理由:
@@ -55,21 +55,21 @@ SwiftUIだけを `swift run` するのではなくApp bundleを組み立てる�
 
 | | Release | Debug |
 |---|---|---|
-| Display name | I'm Thinking | I'm Thinking Debug |
-| Bundle ID | `com.den0206.ImThinking` | `com.den0206.ImThinking.debug` |
-| Bundle | `.build/release/I'm Thinking.app` | `.build/debug/I'm Thinking Debug.app` |
+| Display name | aI'm Thinking | aI'm Thinking Debug |
+| Bundle ID | `com.den0206.AImThinking` | `com.den0206.AImThinking.debug` |
+| Bundle | `.build/release/aI'm Thinking.app` | `.build/debug/aI'm Thinking Debug.app` |
 
 Debug版を別bundle idにすることで、開発中のStart at LoginやLaunchServices上の同一性を本番版と分離します。
 
 ## 4. Build without debugger
 
-Cmd+Shift+B のdefault taskは `Build & Run I'm Thinking Debug.app` です。
+Cmd+Shift+B のdefault taskは `Build & Run aI'm Thinking Debug.app` です。
 
 Terminalから実行する場合:
 
 ```bash
 CONFIG=debug ./scripts/build-app.sh
-open ".build/debug/I'm Thinking Debug.app"
+open ".build/debug/aI'm Thinking Debug.app"
 ```
 
 ## 5. Debug the Rust Core
@@ -134,7 +134,7 @@ cargo run --manifest-path core/Cargo.toml --example replay_eval -- ~/.claude/pro
 
 ## 7. Real agent smoke test
 
-I’m Thinking Debugを起動した状態で、別Terminalから通常どおり `claude` または `codex` を起動します。
+aI'm Thinking Debugを起動した状態で、別Terminalから通常どおり `claude` または `codex` を起動します。
 
 確認ポイント:
 
@@ -143,7 +143,7 @@ I’m Thinking Debugを起動した状態で、別Terminalから通常どおり 
 - activity intensityに応じて音の間隔が変化する
 - read/search/shell待機中に不要な連打が続かない
 - edit/write系toolでは短い入力音が鳴る
-- I’m Thinkingを終了してもAgent側は影響を受けない
+- aI'm Thinkingを終了してもAgent側は影響を受けない
 
 詳細: [Manual Verification Checklist](checklists/manual-verification.md)
 
@@ -178,7 +178,7 @@ AGENTS.md
 
 ### Do not persist transcript content
 
-I’m Thinking側のdebug loggingへprompt、response、reasoning、source code、tool input/output、full JSONL recordを出しません。
+aI'm Thinking側のdebug loggingへprompt、response、reasoning、source code、tool input/output、full JSONL recordを出しません。
 
 diagnosticsはevent type / state / intensity / timestamp / error code等のmetadataに限定します。
 
@@ -197,4 +197,4 @@ diagnosticsはevent type / state / intensity / timestamp / error code等のmetad
 - GitHub Actionsとローカル手順を揃える
 - 実機確認をchecklistとして別管理
 
-I’m Thinkingでは不要なため、Accessibility/TCC向けの複雑な処理、自己更新、独立Release repositoryは採用していません。
+aI'm Thinkingでは不要なため、Accessibility/TCC向けの複雑な処理、自己更新、独立Release repositoryは採用していません。

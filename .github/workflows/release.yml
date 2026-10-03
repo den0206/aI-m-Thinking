@@ -30,7 +30,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "dmg=Im-Thinking-$VERSION.dmg" >> "$GITHUB_OUTPUT"
+          echo "dmg=aIm-Thinking-$VERSION.dmg" >> "$GITHUB_OUTPUT"
 
       - name: Verify toolchain
         run: |
@@ -89,8 +89,8 @@ jobs:
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
         run: |
-          APP=".build/release/I'm Thinking.app"
-          ZIP="$RUNNER_TEMP/Im-Thinking.zip"
+          APP=".build/release/aI'm Thinking.app"
+          ZIP="$RUNNER_TEMP/aIm-Thinking.zip"
           ditto -c -k --keepParent --sequesterRsrc "$APP" "$ZIP"
           xcrun notarytool submit "$ZIP" \
             --apple-id "$NOTARY_APPLE_ID" \
@@ -104,9 +104,9 @@ jobs:
       - name: Create DMG
         run: |
           bash scripts/make-dmg.sh \
-            ".build/release/I'm Thinking.app" \
+            ".build/release/aI'm Thinking.app" \
             "${{ steps.meta.outputs.dmg }}" \
-            "I'm Thinking ${{ steps.meta.outputs.version }}"
+            "aI'm Thinking ${{ steps.meta.outputs.version }}"
 
       - name: Sign DMG
         run: codesign --force --timestamp --sign "$SIGN_IDENTITY" "${{ steps.meta.outputs.dmg }}"
@@ -141,5 +141,5 @@ jobs:
         run: |
           gh release create "$TAG" "$DMG" \
             --verify-tag \
-            --title "I'm Thinking $VERSION" \
+            --title "aI'm Thinking $VERSION" \
             --generate-notes

@@ -97,7 +97,7 @@ final class SandboxAgentRootProvider: AgentRootProviding {
     func chooseRoot(for service: AgentService) -> Bool {
         let panel = NSOpenPanel()
         panel.title = "Select \(service.displayName) session folder"
-        panel.message = "I'm Thinking only reads newly appended session data from this folder."
+        panel.message = "aI'm Thinking only reads newly appended session data from this folder."
         panel.prompt = "Allow Read Access"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true

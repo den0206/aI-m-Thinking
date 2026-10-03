@@ -1,4 +1,4 @@
-# I'm Thinking — Technical Design v1
+# aI'm Thinking — Technical Design v1
 
 > Status: Implementation-ready design  
 > Target: macOS menu bar application  
@@ -7,7 +7,7 @@
 
 ## 1. Product goal
 
-**I'm Thinking** is a macOS menu bar application that passively detects when local AI coding agents are thinking, writing, or executing tools, and turns that activity into keyboard-like audio.
+**aI'm Thinking** is a macOS menu bar application that passively detects when local AI coding agents are thinking, writing, or executing tools, and turns that activity into keyboard-like audio.
 
 The user should continue using each agent normally:
 
@@ -27,7 +27,7 @@ The perceived typing speed is driven by an internal **Activity Velocity** signal
 
 ### Agent isolation
 
-I'm Thinking must not modify:
+aI'm Thinking must not modify:
 
 - `~/.claude/settings.json`
 - project-level `.claude/*` settings
@@ -42,7 +42,7 @@ The default mode is fully passive and read-only.
 
 ### Fail-open behavior
 
-If I'm Thinking crashes, is force-quit, loses audio output, or its Rust core fails:
+If aI'm Thinking crashes, is force-quit, loses audio output, or its Rust core fails:
 
 - Claude Code continues normally.
 - Codex continues normally.
@@ -50,7 +50,7 @@ If I'm Thinking crashes, is force-quit, loses audio output, or its Rust core fai
 
 ### Privacy
 
-I'm Thinking must never persist:
+aI'm Thinking must never persist:
 
 - prompts
 - assistant responses
@@ -78,10 +78,10 @@ The parser should extract only metadata required for classification and counters
 
 ### Normal operation
 
-1. User launches **I'm Thinking.app**.
+1. User launches **aI'm Thinking.app**.
 2. The app remains in the macOS menu bar.
 3. The user starts `claude` or `codex` normally in any terminal.
-4. I'm Thinking detects new/updated session data.
+4. aI'm Thinking detects new/updated session data.
 5. The app classifies the current state:
    - IDLE
    - THINKING
@@ -110,7 +110,7 @@ The displayed percentage, if any, must be labeled **Activity**, not token usage.
 
 ```text
 ┌──────────────────────────────────────────┐
-│              I'm Thinking.app            │
+│              aI'm Thinking.app            │
 │                    Swift                 │
 │                                          │
 │  NSStatusItem / settings                 │
@@ -174,7 +174,7 @@ Default root:
 ~/.claude/projects/
 ```
 
-The passive observer tails only newly appended bytes after I'm Thinking begins monitoring.
+The passive observer tails only newly appended bytes after aI'm Thinking begins monitoring.
 
 Relevant record semantics:
 
@@ -524,7 +524,7 @@ The observer must prioritize agent safety and bounded resource use over perfect 
 
 ## 12. Startup behavior
 
-I'm Thinking must not parse historical sessions on launch.
+aI'm Thinking must not parse historical sessions on launch.
 
 For existing files:
 
@@ -997,7 +997,7 @@ Exercise:
 
 DoD:
 
-- agent processes remain unaffected by all I'm Thinking failures
+- agent processes remain unaffected by all aI'm Thinking failures
 - no orphan core process
 - no unintended temporary files
 - bounded memory/queues remain within limits
@@ -1012,9 +1012,9 @@ I-m-Thinking/
 ├── app/
 │   ├── Package.swift
 │   ├── Resources/
-│   │   └── ImThinking.debug.entitlements
-│   ├── Sources/ImThinking/
-│   │   ├── ImThinkingApp.swift
+│   │   └── AImThinking.debug.entitlements
+│   ├── Sources/AImThinking/
+│   │   ├── AImThinkingApp.swift
 │   │   ├── AppModel.swift
 │   │   ├── MenuContent.swift
 │   │   ├── CoreBridge.swift
@@ -1024,7 +1024,7 @@ I-m-Thinking/
 │   │   ├── SoundSynthesizer.swift
 │   │   ├── TypingScheduler.swift
 │   │   └── LoginItemManager.swift
-│   └── Tests/ImThinkingTests/
+│   └── Tests/AImThinkingTests/
 ├── core/
 │   ├── Cargo.toml
 │   ├── src/
@@ -1069,8 +1069,8 @@ I-m-Thinking/
 VS Code and Cursor use the same checked-in CodeLLDB configuration.
 
 ```text
-I'm Thinking Debug.app
-bundle id: com.den0206.ImThinking.debug
+aI'm Thinking Debug.app
+bundle id: com.den0206.AImThinking.debug
 output: .build/debug/
 ```
 
@@ -1081,8 +1081,8 @@ The debug app alone receives `com.apple.security.get-task-allow`. The release ap
 ### Release build
 
 ```text
-I'm Thinking.app
-bundle id: com.den0206.ImThinking
+aI'm Thinking.app
+bundle id: com.den0206.AImThinking
 output: .build/release/
 ```
 
@@ -1126,8 +1126,8 @@ Version 1 is complete when all of the following are true:
 13. Monitoring is event-driven rather than busy-polled.
 14. Session/event/audio bounds are enforced.
 15. Disk logging is off by default.
-16. I'm Thinking failure cannot break Claude Code or Codex.
-17. User content is never persisted by I'm Thinking.
+16. aI'm Thinking failure cannot break Claude Code or Codex.
+17. User content is never persisted by aI'm Thinking.
 18. Legacy and paginated Codex rollouts are supported.
 19. Unknown future records degrade gracefully.
 20. Real-agent, large-record, crash, and sleep/wake tests pass.

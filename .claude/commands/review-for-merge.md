@@ -1,5 +1,5 @@
 ---
-description: I'm Thinking の変更をマージ前にレビューする
+description: aI'm Thinking の変更をマージ前にレビューする
 argument-hint: "[比較元ref またはレビュー対象の説明]"
 ---
 

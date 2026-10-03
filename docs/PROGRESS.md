@@ -42,7 +42,7 @@ Latest modernization App CI: `37015100779` — build, tests, app bundle construc
 
 ## Distribution / developer workflow modernization — Complete
 
-Reborn was reviewed as a reference and only the pieces appropriate for I'm Thinking were adopted:
+Reborn was reviewed as a reference and only the pieces appropriate for aI'm Thinking were adopted:
 
 - same-repository GitHub Releases; no dedicated release repository
 - tag-based release trigger: `vX.Y.Z`
@@ -53,7 +53,7 @@ Reborn was reviewed as a reference and only the pieces appropriate for I'm Think
 - GitHub Release publication with the repository's own `GITHUB_TOKEN`
 - VS Code / Cursor F5 workflow using CodeLLDB
 - real `.app` bundle debugging rather than launching the raw Swift executable
-- separate debug identity: `I'm Thinking Debug` / `com.den0206.ImThinking.debug`
+- separate debug identity: `aI'm Thinking Debug` / `com.den0206.AImThinking.debug`
 - debug `get-task-allow` entitlement for LLDB
 - separate CodeLLDB entry for the Rust Core
 - expanded README, development guide, release guide, manual verification checklist, and CHANGELOG
@@ -137,7 +137,7 @@ Hardening and packaging added:
 
 These cannot be fully validated in GitHub CI and should be completed on a developer Mac before calling v1 release-ready:
 
-1. Launch the packaged `I'm Thinking.app`.
+1. Launch the packaged `aI'm Thinking.app`.
 2. Confirm menu-bar-only behavior.
 3. Start current Claude Code with normal `claude`.
 4. Confirm THINKING / WRITING / TOOL / IDLE changes and sound.
@@ -147,7 +147,7 @@ These cannot be fully validated in GitHub CI and should be completed on a develo
 8. Change all five sound packs, volume, and mute.
 9. Enable/disable Start at Login.
 10. Sleep/wake the Mac and confirm monitoring resumes.
-11. Force-quit I'm Thinking while Claude/Codex are active and confirm both agents are unaffected.
+11. Force-quit aI'm Thinking while Claude/Codex are active and confirm both agents are unaffected.
 12. Inspect Claude/Codex settings before/after and confirm no changes were made.
 
 ### CI validation

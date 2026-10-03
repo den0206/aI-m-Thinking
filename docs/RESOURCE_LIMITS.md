@@ -67,13 +67,13 @@ Historical transcript replay is forbidden by default.
 
 ## Agent isolation
 
-I'm Thinking must not modify Claude, Codex, project, or shell configuration.
+aI'm Thinking must not modify Claude, Codex, project, or shell configuration.
 
 The observer opens agent session data read-only.
 
 ## Fail-open
 
-If any I'm Thinking component fails:
+If any aI'm Thinking component fails:
 
 - Claude Code remains unaffected.
 - Codex remains unaffected.
@@ -82,7 +82,7 @@ If any I'm Thinking component fails:
 
 ## Privacy
 
-I'm Thinking must never persist:
+aI'm Thinking must never persist:
 
 - prompts
 - assistant responses

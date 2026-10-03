@@ -1,6 +1,6 @@
 ---
 name: review-for-merge
-description: I'm Thinking の作業中の変更やブランチ差分をマージ前にレビューする。修正やコミットは行わない。
+description: aI'm Thinking の作業中の変更やブランチ差分をマージ前にレビューする。修正やコミットは行わない。
 ---
 
 # マージ前レビュー

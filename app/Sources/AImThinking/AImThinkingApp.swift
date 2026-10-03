@@ -1,12 +1,12 @@
 import SwiftUI
 
 @main
-struct ImThinkingApp: App {
+struct AImThinkingApp: App {
     @StateObject private var model = AppModel()
 
     private var displayName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? "I'm Thinking"
+            ?? "aI'm Thinking"
     }
 
     var body: some Scene {

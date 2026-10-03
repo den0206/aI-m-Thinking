@@ -4,10 +4,10 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Run I'm Thinking Debug.app",
-      "program": "${workspaceFolder}/.build/debug/I'm Thinking Debug.app/Contents/MacOS/ImThinking",
+      "name": "Run aI'm Thinking Debug.app",
+      "program": "${workspaceFolder}/.build/debug/aI'm Thinking Debug.app/Contents/MacOS/AImThinking",
       "cwd": "${workspaceFolder}",
-      "preLaunchTask": "Build I'm Thinking Debug.app"
+      "preLaunchTask": "Build aI'm Thinking Debug.app"
     },
     {
       "type": "lldb",

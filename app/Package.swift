@@ -3,22 +3,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "ImThinking",
+    name: "AImThinking",
     platforms: [
         .macOS("26.0")
     ],
     products: [
-        .executable(name: "ImThinking", targets: ["ImThinking"])
+        .executable(name: "AImThinking", targets: ["AImThinking"])
     ],
     targets: [
         .executableTarget(
-            name: "ImThinking",
-            path: "Sources/ImThinking"
+            name: "AImThinking",
+            path: "Sources/AImThinking"
         ),
         .testTarget(
-            name: "ImThinkingTests",
-            dependencies: ["ImThinking"],
-            path: "Tests/ImThinkingTests"
+            name: "AImThinkingTests",
+            dependencies: ["AImThinking"],
+            path: "Tests/AImThinkingTests"
         )
     ],
     swiftLanguageModes: [.v6]

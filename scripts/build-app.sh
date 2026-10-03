@@ -9,22 +9,22 @@ SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 case "$CONFIG" in
   debug)
-    APP_NAME="I'm Thinking Debug"
-    BUNDLE_ID="com.den0206.ImThinking.debug"
+    APP_NAME="aI'm Thinking Debug"
+    BUNDLE_ID="com.den0206.AImThinking.debug"
     CORE_DIR="debug"
     SWIFT_CONFIG="debug"
     DISTRIBUTION="direct"
     ;;
   release)
-    APP_NAME="I'm Thinking"
-    BUNDLE_ID="com.den0206.ImThinking"
+    APP_NAME="aI'm Thinking"
+    BUNDLE_ID="com.den0206.AImThinking"
     CORE_DIR="release"
     SWIFT_CONFIG="release"
     DISTRIBUTION="direct"
     ;;
   appstore-smoke)
-    APP_NAME="I'm Thinking App Store Smoke"
-    BUNDLE_ID="com.den0206.ImThinking.appstore-smoke"
+    APP_NAME="aI'm Thinking App Store Smoke"
+    BUNDLE_ID="com.den0206.AImThinking.appstore-smoke"
     CORE_DIR="release"
     SWIFT_CONFIG="release"
     DISTRIBUTION="app-store"
@@ -49,12 +49,12 @@ if [[ "$CORE_DIR" == "release" ]]; then
 else
   cargo build --manifest-path "$ROOT/core/Cargo.toml"
 fi
-swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --product ImThinking
+swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --product AImThinking
 
 SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/app" -c "$SWIFT_CONFIG" --show-bin-path)"
-cp "$SWIFT_BIN_DIR/ImThinking" "$MACOS/ImThinking"
+cp "$SWIFT_BIN_DIR/AImThinking" "$MACOS/AImThinking"
 cp "$ROOT/core/target/$CORE_DIR/im-thinking-core" "$MACOS/im-thinking-core"
-chmod 755 "$MACOS/ImThinking" "$MACOS/im-thinking-core"
+chmod 755 "$MACOS/AImThinking" "$MACOS/im-thinking-core"
 cp "$ROOT/app/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 cp -R "$ROOT/app/Resources/Sounds" "$RESOURCES/Sounds"
 cp "$ROOT/app/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
@@ -67,7 +67,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>ImThinking</string>
+    <string>AImThinking</string>
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -90,7 +90,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>ImThinkingDistribution</key>
+    <key>AImThinkingDistribution</key>
     <string>$DISTRIBUTION</string>
 </dict>
 </plist>
@@ -108,9 +108,9 @@ APP_CODESIGN_ARGS=("${CODESIGN_ARGS[@]}")
 if [[ "$CONFIG" == "appstore-smoke" ]]; then
   CORE_CODESIGN_ARGS+=(--identifier "$BUNDLE_ID.core")
   CORE_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/im-thinking-core.appstore.entitlements")
-  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/ImThinking.appstore.entitlements")
+  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/AImThinking.appstore.entitlements")
 elif [[ "$CONFIG" == "debug" ]]; then
-  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/ImThinking.debug.entitlements")
+  APP_CODESIGN_ARGS+=(--entitlements "$ROOT/app/Resources/AImThinking.debug.entitlements")
 fi
 
 codesign "${CORE_CODESIGN_ARGS[@]}" "$MACOS/im-thinking-core"

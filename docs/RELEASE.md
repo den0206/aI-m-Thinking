@@ -1,19 +1,19 @@
 # Release Guide
 
-I’m Thinking は専用Releaseリポジトリを使わず、このソースリポジトリ自身の GitHub Releases から配布します。
+aI'm Thinking は専用Releaseリポジトリを使わず、このソースリポジトリ自身の GitHub Releases から配布します。
 
 ## 1. Release artifact
 
 公開物:
 
 ```text
-Im-Thinking-X.Y.Z.dmg
+aIm-Thinking-X.Y.Z.dmg
 ```
 
 DMG内:
 
 ```text
-I'm Thinking.app
+aI'm Thinking.app
 Applications -> /Applications
 ```
 
@@ -118,16 +118,16 @@ BUILD_NUMBER=1 \
 生成物:
 
 ```text
-.build/release/I'm Thinking.app
+.build/release/aI'm Thinking.app
 ```
 
 DMG:
 
 ```bash
 bash scripts/make-dmg.sh \
-  ".build/release/I'm Thinking.app" \
-  Im-Thinking-0.1.0.dmg \
-  "I'm Thinking 0.1.0"
+  ".build/release/aI'm Thinking.app" \
+  aIm-Thinking-0.1.0.dmg \
+  "aI'm Thinking 0.1.0"
 ```
 
 ## 8. Verification
@@ -135,22 +135,22 @@ bash scripts/make-dmg.sh \
 App signature:
 
 ```bash
-codesign --verify --strict --verbose=2 ".build/release/I'm Thinking.app"
-codesign -dv --verbose=4 ".build/release/I'm Thinking.app"
+codesign --verify --strict --verbose=2 ".build/release/aI'm Thinking.app"
+codesign -dv --verbose=4 ".build/release/aI'm Thinking.app"
 ```
 
 Notarization:
 
 ```bash
-xcrun stapler validate ".build/release/I'm Thinking.app"
-xcrun stapler validate Im-Thinking-0.1.0.dmg
+xcrun stapler validate ".build/release/aI'm Thinking.app"
+xcrun stapler validate aIm-Thinking-0.1.0.dmg
 ```
 
 Gatekeeper:
 
 ```bash
-spctl -a -vv ".build/release/I'm Thinking.app"
-spctl -a -t open --context context:primary-signature -vv Im-Thinking-0.1.0.dmg
+spctl -a -vv ".build/release/aI'm Thinking.app"
+spctl -a -t open --context context:primary-signature -vv aIm-Thinking-0.1.0.dmg
 ```
 
 ## 9. Versioning
@@ -172,7 +172,7 @@ GitHub Releasesの公開範囲はrepository visibilityに従います。
 
 ## 11. Deliberately not included
 
-Rebornを参考にしつつ、I’m Thinkingでは次を入れていません。
+Rebornを参考にしつつ、aI'm Thinkingでは次を入れていません。
 
 - self-update
 - release専用repository

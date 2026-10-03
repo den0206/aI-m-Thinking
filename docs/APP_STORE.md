@@ -89,7 +89,7 @@ Paths selected by the user are not persisted as a second app-owned database.
 
 ## Main app entitlements
 
-`app/Resources/ImThinking.appstore.entitlements`:
+`app/Resources/AImThinking.appstore.entitlements`:
 
 ```text
 com.apple.security.app-sandbox = true
@@ -141,7 +141,7 @@ CONFIG=appstore-smoke ./scripts/build-app.sh
 Output:
 
 ```text
-.build/appstore-smoke/I'm Thinking App Store Smoke.app
+.build/appstore-smoke/aI'm Thinking App Store Smoke.app
 ```
 
 CI verifies:
@@ -167,7 +167,7 @@ Before submission, add a real macOS App target that:
 - signs the helper with sandbox + inherit entitlements
 - signs the app with the App Store sandbox entitlements
 - bundles PrivacyInfo.xcprivacy
-- uses the production bundle identifier `com.den0206.ImThinking` (or the final registered identifier)
+- uses the production bundle identifier `com.den0206.AImThinking` (or the final registered identifier)
 - supports Product > Archive
 - exports/uploads using the Mac App Store / App Store Connect distribution path
 
@@ -177,12 +177,12 @@ Do not replace the direct build script; the two distribution paths intentionally
 
 Suggested technical explanation for App Review:
 
-> I'm Thinking is a local menu-bar utility that provides optional typing sounds while supported AI coding tools are working. The app does not modify Claude Code or Codex. It does not install plugins, shell hooks, or background daemons. To detect activity, the user explicitly grants read-only access to the local session folder for each tool using the standard macOS open panel. Access is stored as a security-scoped bookmark and can be revoked from the app. Session content is processed locally; prompts, responses, source code, reasoning content, and tool payloads are not uploaded or persisted by I'm Thinking.
+> aI'm Thinking is a local menu-bar utility that provides optional typing sounds while supported AI coding tools are working. The app does not modify Claude Code or Codex. It does not install plugins, shell hooks, or background daemons. To detect activity, the user explicitly grants read-only access to the local session folder for each tool using the standard macOS open panel. Access is stored as a security-scoped bookmark and can be revoked from the app. Session content is processed locally; prompts, responses, source code, reasoning content, and tool payloads are not uploaded or persisted by aI'm Thinking.
 
 Reviewer steps:
 
 1. Install Claude Code and/or Codex, or use the review sample fixture path if Apple cannot install the third-party CLI.
-2. Open I'm Thinking.
+2. Open aI'm Thinking.
 3. Choose the relevant session folder under Agent Folder Access.
 4. Run the agent normally.
 5. Observe state changes and typing audio.
