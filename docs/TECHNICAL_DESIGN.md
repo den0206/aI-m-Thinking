@@ -404,7 +404,7 @@ keys_per_second = 1.2 + 13.8 * intensity^1.8
 Rules:
 
 - intensity below a small threshold: silence
-- hard maximum: 15 keys/sec
+- hard maximum: 30 keys/sec
 - interval jitter: approximately ±18%
 - no multi-second pre-scheduling
 - schedule only the next one or two keystrokes

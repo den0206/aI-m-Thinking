@@ -24,6 +24,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 - Minimum deployment target is macOS 26.0.
 - Swift toolchain is pinned to Swift 6.4.
+- The typing speed slider spans 0.3–2.1× and the cap is 30 keys/s, so the fast end is audibly faster.
 
 ### Fixed
 
@@ -33,7 +34,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 - Claude idle status cannot be undone by queued transcript records across scan budgets or by a partial row completed later.
 - Codex long model-output waits remain audible up to the bounded stale-turn deadline; paginated reasoning/messages and terminal answer phases are recognized.
 - Late records cannot reopen explicitly ended turns, and silent/idle sessions and monitor shutdown no longer leave the keycap animating.
-- Audio stays within four voices and 15 keys/s, drops queued overlap, releases inactive pack PCM, and cancels pending previews on stop.
+- Audio stays within four voices and 30 keys/s, drops queued overlap, releases inactive pack PCM, and cancels pending previews on stop.
 - Claude Code turns end on the final message's `stop_reason`; current versions no longer write `turn_duration`, so sessions previously never returned to IDLE.
 - Activity holds while the model is generating output that has not reached the transcript yet, instead of falling silent after 5 seconds.
 - Claude interruption and meta rows no longer start a new turn.

@@ -42,6 +42,9 @@ final class TypingScheduler {
         scheduled = false
     }
 
+    /// High enough that the fast end of the speed slider is not flattened.
+    nonisolated static let maxKeysPerSecond = 30.0
+
     nonisolated static func keysPerSecond(
         intensity: Double,
         phase: String,
@@ -66,7 +69,7 @@ final class TypingScheduler {
         // Even light activity types at a real typist's pace (~6 keys/s);
         // intensity pushes it toward a fast burst.
         let base = 6.0 + 9.0 * pow(value, 1.2)
-        return min(15.0, base * multiplier * max(0, speedScale))
+        return min(Self.maxKeysPerSecond, base * multiplier * max(0, speedScale))
     }
 
     private func scheduleNext() {
@@ -86,7 +89,7 @@ final class TypingScheduler {
         let kind = nextKind()
         let jitter = Double.random(in: 0.6...1.25)
         var delay = (1.0 / speed) * jitter
-        delay = max(1.0 / 15.0, delay)
+        delay = max(1.0 / Self.maxKeysPerSecond, delay)
         if kind != .key {
             delay += Double.random(in: 0.04...0.14)
         }

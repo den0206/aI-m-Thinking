@@ -16,9 +16,16 @@ func idleAndNonMutationToolsAreSilent() {
 
 @Test
 func maximumRateIsBounded() {
-    for speed in [0.6, 1.2, 1.8] {
-        #expect(TypingScheduler.keysPerSecond(intensity: 1, phase: "writing", toolClass: nil, speedScale: speed) <= 15)
+    for speed in [0.3, 1.2, 2.1] {
+        #expect(TypingScheduler.keysPerSecond(intensity: 1, phase: "writing", toolClass: nil, speedScale: speed) <= TypingScheduler.maxKeysPerSecond)
     }
+}
+
+@Test
+func speedSliderChangesRateAtFullIntensity() {
+    let rate = { TypingScheduler.keysPerSecond(intensity: 1, phase: "writing", toolClass: nil, speedScale: $0) }
+    #expect(rate(2.1) > rate(1.2))
+    #expect(rate(1.2) > rate(0.3))
 }
 
 @Test @MainActor

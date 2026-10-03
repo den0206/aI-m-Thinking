@@ -30,12 +30,12 @@ const STALE_TURN_TIMEOUT_SECS: u64 = 600;
 ```swift
 let maxAudioQueue = 32
 let maxAudioVoices = 4
-let maxKeysPerSecond = 15.0
+let maxKeysPerSecond = 30.0
 ```
 
 Overflow must drop non-critical observer/audio work rather than backpressure Claude or Codex.
 
-- The speed multiplier is included before the 15 keys/s cap, and jitter never shortens a playback interval below 1/15 second.
+- The speed multiplier is included before the 30 keys/s cap, and jitter never shortens a playback interval below 1/30 second.
 - A reused voice drops its previous buffer; playback does not accumulate an audio backlog. Pack changes retain decoded PCM only for the current pack.
 - Zero-intensity or IDLE sessions do not keep the keycap animation running. Mute silences audio while preserving animation for current activity; monitor stop/failure clears both.
 

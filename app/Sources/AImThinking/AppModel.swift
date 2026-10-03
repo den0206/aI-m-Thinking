@@ -15,7 +15,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var volume: Double
     /// Typing speed multiplier; the slider's midpoint is the default.
     @Published private(set) var typingSpeed: Double
-    static let typingSpeedRange = 0.6...1.8
+    static let typingSpeedRange = 0.3...2.1
     @Published private(set) var muted: Bool
     @Published private(set) var startAtLogin: Bool
     @Published private(set) var claudeFolderAuthorized = false
