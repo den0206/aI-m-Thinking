@@ -7,7 +7,13 @@ import AppKit
 enum KeycapIcon {
     /// Travel frames from released (0) to bottomed out (last), in half-point
     /// steps so each frame lands on a Retina pixel.
-    static let frames = (0...4).map { make(label: "thinking", sink: CGFloat($0) * 0.5) }
+    static let frames = (0...4).map { make(label: label, sink: CGFloat($0) * 0.5) }
+
+    #if DEBUG
+    private static let label = "debug"  // tells debug and release apart in the menu bar
+    #else
+    private static let label = "thinking"
+    #endif
 
     /// `sink` lowers the top face toward the fixed base, shortening the sides,
     /// as a key does when struck.
