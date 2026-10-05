@@ -14,6 +14,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 ### Changed
 
 - Direct builds can select custom Claude Code / Codex session folders from Agent Folders and reset them to the defaults.
+- Agent folder rows without a folder show the expected path (`~/.claude/projects`, `~/.codex/sessions`).
 - While muted, the menu-bar keycap reads "muted" and stops striking; while any session is paused it reads "paused".
 - The menus, onboarding and folder messages are available in Japanese.
 - When an agent is idle, its tile shows how long ago activity was last detected.

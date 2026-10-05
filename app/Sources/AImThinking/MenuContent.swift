@@ -187,6 +187,10 @@ struct MenuContent: View {
                         Text(model.requiresFolderAuthorization ? "Allowed" : "Ready")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    } else {
+                        Text(service.suggestedDisplayPath)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
