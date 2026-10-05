@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Shown once on first launch: the app has no Dock icon or window, so this
+/// Shown on first launch and from the menu: the app has no Dock icon or window, so this
 /// points at the menu bar and, in the App Store build, collects folder access.
 struct OnboardingView: View {
     static let windowID = "onboarding"

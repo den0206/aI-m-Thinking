@@ -10,6 +10,7 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 - Optional Ambient Accents mode (off by default) with rare activity-aware rain, distant thunder, and page-turn sounds.
 - Debug-only Ambient tuning controls for gain and one-shot previews.
+- The menu can reopen the onboarding window after setup.
 
 ### Changed
 

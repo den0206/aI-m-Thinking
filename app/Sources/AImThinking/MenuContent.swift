@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuContent: View {
     @ObservedObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -399,6 +400,12 @@ struct MenuContent: View {
             .toggleStyle(.switch)
             .controlSize(.mini)
             .help("Occasional room sounds while an agent is working")
+
+            Button("Show Welcome Window") {
+                openWindow(id: OnboardingView.windowID)
+                NSApp.activate()
+            }
+            .buttonStyle(.plain)
 
             Button("Restart Monitor") {
                 model.restartCore()
