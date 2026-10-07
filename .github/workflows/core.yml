@@ -10,13 +10,21 @@ on:
     paths:
       - "core/**"
       - ".github/workflows/core.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# A newer push to the same branch or PR supersedes the running check.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust:
-    runs-on: macos-latest
+    # macOS minutes cost 10x. The macOS-only code (core/src/sandbox.rs) is still compiled by the
+    # App workflow, which also runs on core/** changes, and is linted by the Release workflow.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - name: Toolchain

@@ -16,9 +16,15 @@ on:
       - "scripts/build-app.sh"
       - "scripts/make-dmg.sh"
       - ".github/workflows/app.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer push to the same branch or PR supersedes the running check.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   swift:
@@ -40,9 +46,12 @@ jobs:
           test -x ".build/debug/aI'm Thinking Debug.app/Contents/MacOS/AImThinking"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ".build/debug/aI'm Thinking Debug.app/Contents/Info.plist")" = "com.den0206.AImThinking.debug"
 
+      # Packaging checks are slow on macOS runners, so pull requests stop at the debug bundle.
       - name: Build App Store Smoke Bundle
+        if: github.event_name != 'pull_request'
         run: CONFIG=appstore-smoke bash scripts/build-app.sh
       - name: Verify App Store Sandbox Entitlements
+        if: github.event_name != 'pull_request'
         run: |
           APP=".build/appstore-smoke/aI'm Thinking App Store Smoke.app"
           CORE="$APP/Contents/MacOS/im-thinking-core"
@@ -62,8 +71,10 @@ jobs:
           ! grep -q '<key>com.apple.security.files.user-selected.read-only</key>' "$RUNNER_TEMP/core-entitlements.plist"
 
       - name: Build App Bundle
+        if: github.event_name != 'pull_request'
         run: bash scripts/build-app.sh
       - name: Verify Bundle
+        if: github.event_name != 'pull_request'
         run: |
           test -x ".build/release/aI'm Thinking.app/Contents/MacOS/AImThinking"
           test -x ".build/release/aI'm Thinking.app/Contents/MacOS/im-thinking-core"
@@ -71,6 +82,7 @@ jobs:
           plutil -lint ".build/release/aI'm Thinking.app/Contents/Info.plist"
 
       - name: Build Test DMG
+        if: github.event_name != 'pull_request'
         run: |
           bash scripts/make-dmg.sh             ".build/release/aI'm Thinking.app"             "$RUNNER_TEMP/aIm-Thinking-test.dmg"             "aI'm Thinking Test"
           hdiutil imageinfo "$RUNNER_TEMP/aIm-Thinking-test.dmg" >/dev/null
