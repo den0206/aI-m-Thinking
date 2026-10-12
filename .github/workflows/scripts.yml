@@ -1,0 +1,31 @@
+name: Scripts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts.yml"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check shell syntax
+        run: for script in scripts/*.sh; do bash -n "$script"; done
+      - name: Test App Store Connect authentication
+        run: python3 -m unittest discover -s scripts/tests
