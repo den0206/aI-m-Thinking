@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 final class AmbientAccentScheduler {
-    static let defaultInterval: ClosedRange<TimeInterval> = 3 * 60...8 * 60
+    static let defaultInterval: ClosedRange<TimeInterval> = 1 * 60...3 * 60
 
     private let audio: AmbientAudioEngine
     private let interval: ClosedRange<TimeInterval>
