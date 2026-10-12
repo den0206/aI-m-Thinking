@@ -51,6 +51,8 @@ struct MenuContent: View {
                 set: model.setTypingSpeed
             )
 
+            audioAppearanceModule
+
             #if DEBUG
             ambientTuningModule
             #endif
@@ -324,6 +326,46 @@ struct MenuContent: View {
         .module()
     }
 
+    private var audioAppearanceModule: some View {
+        DisclosureGroup("Audio & Appearance") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Stereo Typing", isOn: Binding(
+                    get: { model.stereoEnabled }, set: model.setStereoEnabled
+                ))
+                if model.stereoEnabled {
+                    settingSlider(title: String(localized: "Stereo Width"), value: model.stereoWidth,
+                                  set: model.setStereoWidth)
+                }
+                Toggle("Ambient Accents (beta)", isOn: Binding(
+                    get: { model.ambientAccentsEnabled }, set: model.setAmbientAccentsEnabled
+                ))
+                .help("Occasional room sounds while an agent is working")
+                Toggle("Menu Bar Mood", isOn: Binding(
+                    get: { model.moodEnabled }, set: model.setMoodEnabled
+                ))
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .padding(.top, 8)
+        }
+        .module()
+    }
+
+    private func settingSlider(title: String, value: Double, set: @escaping @MainActor @Sendable (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(Int((value * 100).rounded()))%")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: Binding(get: { value }, set: set), in: 0...1)
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int((value * 100).rounded()))%")
+        }
+    }
+
     // MARK: - Ambient accents
 
     #if DEBUG
@@ -376,6 +418,9 @@ struct MenuContent: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Text("Settings")
+                .font(.headline)
+
             Toggle(
                 "Start at Login",
                 isOn: Binding(
@@ -389,17 +434,6 @@ struct MenuContent: View {
             if let message = model.loginItemMessage {
                 LoginItemNotice(message: message)
             }
-
-            Toggle(
-                "Ambient Accents",
-                isOn: Binding(
-                    get: { model.ambientAccentsEnabled },
-                    set: { model.setAmbientAccentsEnabled($0) }
-                )
-            )
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            .help("Occasional room sounds while an agent is working")
 
             Button("Show Welcome Window") {
                 openWindow(id: OnboardingView.windowID)

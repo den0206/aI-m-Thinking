@@ -27,6 +27,11 @@ enum KeycapIcon {
         state.flatMap { stateFrames[$0]?[frame] } ?? frames[frame]
     }
 
+    static func coloredImage(frame: Int, state: State?, faceColor: NSColor, foreground: NSColor) -> NSImage {
+        make(label: state?.rawValue ?? label, sink: CGFloat(frame) * 0.5,
+             faceColor: faceColor, foreground: foreground)
+    }
+
     #if DEBUG
     private static let label = "debug"  // tells debug and release apart in the menu bar
     #else
@@ -35,9 +40,9 @@ enum KeycapIcon {
 
     /// `sink` lowers the top face toward the fixed base, shortening the sides,
     /// as a key does when struck.
-    static func make(label: String, sink: CGFloat) -> NSImage {
+    static func make(label: String, sink: CGFloat, faceColor: NSColor? = nil, foreground: NSColor = .black) -> NSImage {
         let font = NSFont.systemFont(ofSize: 7, weight: .semibold)
-        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: foreground]
         let textSize = (label as NSString).size(withAttributes: attributes)
 
         let height: CGFloat = 18
@@ -79,13 +84,21 @@ enum KeycapIcon {
             let side = polygon([frontRight, backRight, baseBackRight, baseFrontRight])
             let face = polygon([backLeft, backRight, frontRight, frontLeft])
 
-            // Shading: the right side is in shadow, the front a little less.
-            NSColor.black.withAlphaComponent(0.55).setFill()
-            side.fill()
-            NSColor.black.withAlphaComponent(0.25).setFill()
-            front.fill()
-
-            NSColor.black.setStroke()
+            // Darker side faces keep the keycap's depth visible at menu-bar size.
+            if let faceColor {
+                (faceColor.blended(withFraction: 0.35, of: .black) ?? faceColor).setFill()
+                side.fill()
+                (faceColor.blended(withFraction: 0.18, of: .black) ?? faceColor).setFill()
+                front.fill()
+                NSGradient(starting: faceColor.blended(withFraction: 0.12, of: foreground) ?? faceColor,
+                           ending: faceColor)?.draw(in: face, angle: 90)
+            } else {
+                foreground.withAlphaComponent(0.55).setFill()
+                side.fill()
+                foreground.withAlphaComponent(0.25).setFill()
+                front.fill()
+            }
+            foreground.setStroke()
             [front, side, face].forEach { $0.stroke() }
 
             // Print the label on the top face, sheared to follow its slant.
@@ -105,7 +118,7 @@ enum KeycapIcon {
             NSGraphicsContext.restoreGraphicsState()
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = faceColor == nil
         return image
     }
 }

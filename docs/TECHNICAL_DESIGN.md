@@ -106,6 +106,16 @@ Initial menu bar scope:
 
 The displayed percentage, if any, must be labeled **Activity**, not token usage.
 
+### Optional audio and appearance
+
+- **Audio & Appearance** contains Stereo Typing, Ambient Accents (beta) and the Menu Bar Mood switch. All three default OFF; existing saved switches are preserved.
+- Mood colors the whole keycap, with darker front/right faces and no outer halo: Claude uses terracotta `#D97757`, Codex uses teal `#35B6AA`. Glow strength is fixed at 30%.
+- THINKING varies brightness slowly, WRITING stays steady, and TOOL gets a brief highlight. Mute, idle, all-paused or failed monitoring returns the icon to neutral. Partial pause preserves the `paused` label with the active unpaused Agent color.
+- Mood selects each Agent's maximum active session intensity, never the sum. A challenger must lead by at least 0.15 for 0.8 seconds, with a 2-second dwell. An inactive incumbent is released immediately. Reduced motion disables light variation and key travel and switches Agent colors directly.
+- Stereo assigns stable virtual positions to sample indices with small bounded strike variation; it does not receive actual typed keys. Width affects future strikes and previews, without changing the audio graph or restarting Rust.
+
+Exact audio intervals, pan ranges, update rates and cache limits are maintained in [Resource Limits](RESOURCE_LIMITS.md). Native menu-bar, listening and resource acceptance is tracked in the [manual checklist](checklists/manual-verification.md#n-menu-bar-mood--stereo-typing).
+
 ## 4. Architecture
 
 ```text
