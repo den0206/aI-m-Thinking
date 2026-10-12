@@ -19,7 +19,7 @@ struct AImThinkingApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            KeycapLabel(animator: model.keyPress, model: model)
+            KeycapLabel(animator: model.keyPress, mood: model.mood, model: model)
                 .accessibilityLabel(displayName)
         }
         .menuBarExtraStyle(.window)
@@ -36,10 +36,19 @@ struct AImThinkingApp: App {
 
 private struct KeycapLabel: View {
     @ObservedObject var animator: KeyPressAnimator
+    @ObservedObject var mood: MoodCoordinator
     @ObservedObject var model: AppModel
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        Image(nsImage: KeycapIcon.image(frame: animator.frame, state: model.menuBarState))
-            .accessibilityValue(model.menuBarState.map { String(localized: String.LocalizationValue($0.rawValue.capitalized)) } ?? "")
+        let image = KeycapMoodRenderer.image(frame: animator.frame, state: model.menuBarState,
+                                               mood: mood.appearance, dark: colorScheme == .dark,
+                                               highContrast: contrast == .increased)
+        return Image(nsImage: image)
+            .renderingMode(image.isTemplate ? .template : .original)
+            .accessibilityValue([model.menuBarState.map { String(localized: String.LocalizationValue($0.rawValue.capitalized)) },
+                                 mood.appearance?.agent.displayName]
+                .compactMap { $0 }.joined(separator: ", "))
     }
 }

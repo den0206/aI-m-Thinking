@@ -26,6 +26,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var muted: Bool
     @Published private(set) var ambientAccentsEnabled: Bool
     static let defaultVolume = 0.55
+    @Published private(set) var moodEnabled: Bool
+    static let moodGlowIntensity = 0.3
+    @Published private(set) var stereoEnabled: Bool
+    @Published private(set) var stereoWidth: Double
+    @Published private(set) var reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
     #if DEBUG
     @Published private(set) var ambientDebugGain = AmbientAudioEngine.defaultGain
@@ -50,6 +55,7 @@ final class AppModel: ObservableObject {
 
     let distributionMode: DistributionMode
     let keyPress = KeyPressAnimator()
+    let mood = MoodCoordinator()
 
     private let bridge: CoreBridge
     private let rootProvider: any AgentRootProviding
@@ -60,6 +66,7 @@ final class AppModel: ObservableObject {
     private let defaults: UserDefaults
     private var activities: [UInt32: ActivityState] = [:]
     private var wakeTask: Task<Void, Never>?
+    private var accessibilityTask: Task<Void, Never>?
 
     init(defaults: UserDefaults = .standard, startMonitoring: Bool = true,
          distributionMode: DistributionMode = .current,
@@ -92,6 +99,12 @@ final class AppModel: ObservableObject {
         volume = initialVolume
         typingSpeed = initialSpeed
         muted = initialMuted
+        moodEnabled = defaults.bool(forKey: "moodEnabled")
+        stereoEnabled = defaults.bool(forKey: "stereoEnabled")
+        let legacyWidth = (defaults.object(forKey: "stereoWidth") as? Double).flatMap {
+            $0.isFinite ? Self.unitSetting($0, fallback: 0.25) / 2 : nil
+        }
+        stereoWidth = Self.unitSetting(defaults.object(forKey: "stereoWidthV2") as? Double ?? legacyWidth ?? 0.25, fallback: 0.25)
         ambientAccentsEnabled = defaults.bool(forKey: "ambientAccentsEnabled")
         startAtLogin = LoginItemManager.isEnabled
         onboardingCompleted = defaults.bool(forKey: "onboardingCompleted")
@@ -108,8 +121,18 @@ final class AppModel: ObservableObject {
         ambientAudio.muted = initialMuted
         ambientScheduler = AmbientAccentScheduler(audio: ambientAudio)
         ambientScheduler.isEnabled = ambientAccentsEnabled
+        audio.stereoEnabled = stereoEnabled
+        audio.stereoWidth = stereoWidth
         keyPress.speedScale = initialSpeed
 
+        accessibilityTask = Task { [weak self] in
+            for await _ in NSWorkspace.shared.notificationCenter.notifications(
+                named: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+            ) {
+                guard !Task.isCancelled else { return }
+                self?.setReducedMotion(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+            }
+        }
         refreshAuthorizationState()
 
         bridge.onStatus = { [weak self] status in
@@ -142,6 +165,7 @@ final class AppModel: ObservableObject {
 
     deinit {
         wakeTask?.cancel()
+        accessibilityTask?.cancel()
     }
 
     /// Mute wins: nothing is heard, whatever is paused.
@@ -243,6 +267,7 @@ final class AppModel: ObservableObject {
         audio.stop()
         ambientScheduler.stop()
         keyPress.update(active: false, intensity: 0)
+        mood.reset()
         claudeState = "Waiting"
         codexState = "Waiting"
         unrecognizedAgents.removeAll()
@@ -260,6 +285,33 @@ final class AppModel: ObservableObject {
     private static func randomPack(excluding used: [SoundPackID]) -> SoundPackID {
         SoundPackID.allCases.filter { !used.contains($0) }.randomElement()
             ?? SoundPackID.allCases.randomElement()!
+    }
+
+    private static func unitSetting(_ value: Double, fallback: Double) -> Double {
+        value.isFinite ? max(0, min(1, value)) : fallback
+    }
+
+    func setMoodEnabled(_ enabled: Bool) {
+        moodEnabled = enabled
+        defaults.set(enabled, forKey: "moodEnabled")
+        updateGlobalAudio()
+    }
+
+    func setStereoEnabled(_ enabled: Bool) {
+        stereoEnabled = enabled
+        defaults.set(enabled, forKey: "stereoEnabled")
+        audio.stereoEnabled = enabled
+    }
+
+    func setStereoWidth(_ value: Double) {
+        stereoWidth = Self.unitSetting(value, fallback: 0.25)
+        defaults.set(stereoWidth, forKey: "stereoWidthV2")
+        audio.stereoWidth = stereoWidth
+    }
+
+    func setReducedMotion(_ enabled: Bool) {
+        reducedMotion = enabled
+        updateGlobalAudio()
     }
 
     func setTypingSpeed(_ newValue: Double) {
@@ -465,7 +517,14 @@ final class AppModel: ObservableObject {
             audible: !busy.isEmpty
         )
         // A still keycap printed "muted" reads as silenced.
-        keyPress.update(active: !muted && !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
+        keyPress.update(active: !muted && !reducedMotion && !busy.isEmpty, intensity: busy.map(\.intensity).max() ?? 0)
+        let visible = busy.compactMap { activity -> MoodActivity? in
+            guard let agent = AgentService(rawValue: activity.agent),
+                  !["access_required", "access_denied", "directory_missing", "error"].contains(observerStatuses[agent] ?? "")
+            else { return nil }
+            return MoodActivity(agent: agent, phase: activity.phase, intensity: activity.intensity)
+        }
+        mood.update(visible, enabled: moodEnabled && !muted, glow: Self.moodGlowIntensity, reducedMotion: reducedMotion)
 
         for service in AgentService.allCases {
             let agent = service.rawValue

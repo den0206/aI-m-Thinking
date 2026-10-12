@@ -21,6 +21,9 @@ final class KeyboardAudioEngine {
         }
     }
 
+    var stereoEnabled = false
+    var stereoWidth = 0.25
+
     var muted = false
 
     init(pack: SoundPackID, soundsDirectory: URL? = SoundSamples.bundledDirectory) {
@@ -59,6 +62,7 @@ final class KeyboardAudioEngine {
     func play(_ kind: KeySoundKind) {
         guard !muted, let bank else { return }
         startIfNeeded()
+        guard engine.isRunning else { return }
 
         let buffers: [AVAudioPCMBuffer]
         switch kind {
@@ -67,7 +71,8 @@ final class KeyboardAudioEngine {
         case .enter: buffers = bank.enters
         }
 
-        guard let buffer = buffers.randomElement(), !voices.isEmpty else { return }
+        guard let sampleIndex = buffers.indices.randomElement(), !voices.isEmpty else { return }
+        let buffer = buffers[sampleIndex]
 
         let voice = voices[voiceIndex % voices.count]
         voiceIndex = (voiceIndex + 1) % voices.count
@@ -75,7 +80,10 @@ final class KeyboardAudioEngine {
         // faster than a long recording can finish. At most four are retained.
         voice.stop()
         // Different keys sit at different spots and get hit with different force.
-        voice.pan = Float.random(in: -0.35...0.35)
+        voice.pan = stereoEnabled
+            ? StereoProfile.pan(kind: kind, sampleIndex: sampleIndex, sampleCount: buffers.count,
+                                width: stereoWidth, variation: Double.random(in: -0.06...0.06))
+            : Float.random(in: -0.35...0.35)
         voice.volume = Float.random(in: 0.7...1.0)
         voice.scheduleBuffer(buffer)
 

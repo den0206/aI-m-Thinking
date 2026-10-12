@@ -172,3 +172,21 @@ CONFIG=appstore-smoke ./scripts/build-app.sh
 - [ ] force-quitting the app terminates the helper without affecting Claude/Codex
 
 Full submission checklist: [APP_STORE.md](../APP_STORE.md)
+
+
+## N. Menu Bar Mood / Stereo Typing
+
+- [ ] 初期値は Mood OFF / Stereo OFF。音と表示の設定は再起動後も保持される
+- [ ] 18ptのメニューバーで文字と輪郭が読める（明暗、Retina、高コントラスト）
+- [ ] 上面・前面・側面すべてが着色され、面ごとの明暗差がある。外側のハローがない
+- [ ] THINKING だけ緩やかに明滅し、WRITING は安定、TOOL は短い控えめな強調
+- [ ] 複数 Agent の色が混ざらず、中立色を挟んで切り替わる。強度が近いときは頻繁に切り替わらない
+- [ ] 一部停止中は paused を維持し、動いている Agent の色を表示する
+- [ ] ミュート、全停止、監視失敗、Mood OFF で中立色に戻り、不要なタスクが残らない
+- [ ] 動きを減らす設定で押下・明滅・色遷移が静止し、設定を実行中に変更しても反映される
+- [ ] Stereo OFF は従来の定位、ON の幅0%は中央、50%は従来の100%と同じ、100%は左右端まで広がる。保存済みの値は半分に換算され、聞こえ方が維持される
+- [ ] Sound Pack プレビューにも幅設定が反映される。変更は次の打鍵から反映される
+- [ ] ヘッドホン、スピーカー、モノラルで音量の偏りやクリッピングがない
+- [ ] 音声出力変更、スリープ復帰、Sound Pack 切替後も再生できる
+- [ ] アイドル時のCPUと長時間稼働のメモリを確認する
+- [ ] App Store sandboxでも描画・再生・設定が動き、新しい権限要求がない

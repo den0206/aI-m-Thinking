@@ -87,10 +87,16 @@
 "Last activity detected" = "最後に動作を検知した時刻";
 
 /* Ambient accents */
-"Ambient Accents" = "環境音アクセント";
+"Ambient Accents (beta)" = "環境音 (beta)";
 "Occasional room sounds while an agent is working" = "エージェントの作業中に、ごくまれに環境音を鳴らします";
 "Ambient Tuning (Debug)" = "環境音調整（デバッグ）";
 "Gain" = "音量係数";
 "Rain" = "雨";
 "Thunder" = "遠雷";
 "Page" = "ページ";
+
+"Audio & Appearance" = "音と表示";
+"Stereo Typing" = "ステレオ打鍵";
+"Stereo Width" = "左右の広がり";
+"Menu Bar Mood" = "メニューバーの発光";
+"Settings" = "設定";
