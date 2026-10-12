@@ -54,9 +54,9 @@ if $CHECK_ONLY; then
   exit 0
 fi
 
-# altool --wait の直後は API にまだビルドが見えないことがある。
+# アップロード後は Apple の処理完了と API への反映を待つ。
 BUILD_ID=""
-for _ in $(seq 30); do
+for _ in $(seq "${ASC_BUILD_POLL_ATTEMPTS:-30}"); do
   BUILD_ID="$(asc GET "/builds?filter%5Bapp%5D=$APP_ID&filter%5Bversion%5D=$BUILD_NUMBER&filter%5BpreReleaseVersion.version%5D=$VERSION&filter%5BprocessingState%5D=VALID" | jq -r '.data[0].id // empty')"
   [[ -n "$BUILD_ID" ]] && break
   sleep 20

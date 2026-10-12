@@ -155,6 +155,8 @@ SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 4. Mac App Store用パッケージをビルドしてアップロードし、同じ節を「新機能」に入れて審査へ提出
 5. 更新した `CHANGELOG.md` を `main` へコミット
 
+バージョン確認・CHANGELOGの準備・App Store Connectの処理待ちと審査提出はUbuntuで実行します。macOSはビルド・署名・公証・アップロードを担当します。失敗した提出ジョブだけを再実行すると、アップロード済みのビルドと保存したノートを引き継ぎます。
+
 ```bash
 git switch -c release/Ver_0.1.0
 git push origin release/Ver_0.1.0

@@ -12,10 +12,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: xcode-27
-    # A step waiting on a keychain prompt or Apple's servers must fail instead of running for 6 hours.
-    timeout-minutes: 60
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      dmg: ${{ steps.meta.outputs.dmg }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,17 +64,6 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "dmg=aIm-Thinking-$VERSION.dmg" >> "$GITHUB_OUTPUT"
 
-      - name: Verify toolchain
-        run: |
-          swift --version
-          swift --version | grep -q 'Apple Swift version 6.4'
-
-      - name: Verify tests
-        run: |
-          cargo test --manifest-path core/Cargo.toml
-          cargo clippy --manifest-path core/Cargo.toml --all-targets -- -D warnings
-          swift test --package-path app
-
       - name: Cut changelog section
         run: |
           scripts/release-changelog.sh --check
@@ -108,10 +102,58 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
         run: |
+          umask 077
           mkdir -p "$RUNNER_TEMP/keys"
           printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
           ASC_KEY_P8="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" scripts/appstore-release.sh --check "${{ steps.meta.outputs.version }}"
+
+      - name: Save release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes-${{ github.run_number }}
+          path: ${{ runner.temp }}/notes.md
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
+
+  release:
+    needs: check
+    runs-on: xcode-27
+    timeout-minutes: 60
+    outputs:
+      build_number: ${{ steps.package.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes-${{ github.run_number }}
+          path: ${{ runner.temp }}
+
+      - name: Verify toolchain
+        run: |
+          swift --version
+          swift --version | grep -q 'Apple Swift version 6.4'
+
+      - name: Verify tests
+        run: |
+          cargo test --manifest-path core/Cargo.toml
+          cargo clippy --manifest-path core/Cargo.toml --all-targets -- -D warnings
+          swift test --package-path app
+
+      - name: Prepare upload API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
 
       - name: Import Developer ID certificate
         env:
@@ -144,7 +186,7 @@ jobs:
       - name: Build signed app
         timeout-minutes: 5
         env:
-          MARKETING_VERSION: ${{ steps.meta.outputs.version }}
+          MARKETING_VERSION: ${{ needs.check.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: bash scripts/build-app.sh
 
@@ -172,11 +214,11 @@ jobs:
         run: |
           bash scripts/make-dmg.sh \
             ".build/release/aI'm Thinking.app" \
-            "${{ steps.meta.outputs.dmg }}" \
-            "aI'm Thinking ${{ steps.meta.outputs.version }}"
+            "${{ needs.check.outputs.dmg }}" \
+            "aI'm Thinking ${{ needs.check.outputs.version }}"
 
       - name: Sign DMG
-        run: codesign --force --timestamp --sign "$SIGN_IDENTITY" "${{ steps.meta.outputs.dmg }}"
+        run: codesign --force --timestamp --sign "$SIGN_IDENTITY" "${{ needs.check.outputs.dmg }}"
 
       - name: Notarize and staple DMG
         timeout-minutes: 15
@@ -185,7 +227,7 @@ jobs:
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
         run: |
-          DMG="${{ steps.meta.outputs.dmg }}"
+          DMG="${{ needs.check.outputs.dmg }}"
           xcrun notarytool submit "$DMG" \
             --apple-id "$NOTARY_APPLE_ID" \
             --team-id "$NOTARY_TEAM_ID" \
@@ -196,22 +238,23 @@ jobs:
 
       - name: Verify release artifact
         run: |
-          DMG="${{ steps.meta.outputs.dmg }}"
+          DMG="${{ needs.check.outputs.dmg }}"
           codesign --verify --verbose=2 "$DMG"
           spctl -a -t open --context context:primary-signature -vv "$DMG" || true
 
       # Built before the GitHub Release so a signing failure does not leave a release behind.
       # Signing only takes seconds; a hang here means a keychain prompt, so fail fast.
       - name: Build App Store package
+        id: package
         timeout-minutes: 3
         env:
           MAS_PROVISIONING_PROFILE: ${{ secrets.MAS_PROVISIONING_PROFILE }}
-          MARKETING_VERSION: ${{ steps.meta.outputs.version }}
+          MARKETING_VERSION: ${{ needs.check.outputs.version }}
         run: |
           # +100 keeps CI builds above the builds uploaded by hand before CI existed (0.1.0 build 2).
           BUILD_NUMBER="$((100 + GITHUB_RUN_NUMBER)).$GITHUB_RUN_ATTEMPT"
           printf '%s' "$MAS_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/mas.provisionprofile"
-          echo "MAS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "MAS_PKG=.build/appstore/aIm-Thinking-$MARKETING_VERSION-$BUILD_NUMBER.pkg" >> "$GITHUB_ENV"
           # Names only, so a missing identity shows up here instead of as a hang.
           security find-identity -v "$SIGNING_KEYCHAIN" | sed -n 's/.*"\(.*\)"/\1/p'
@@ -237,8 +280,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.meta.outputs.tag }}
-          DMG: ${{ steps.meta.outputs.dmg }}
+          TAG: ${{ needs.check.outputs.tag }}
+          DMG: ${{ needs.check.outputs.dmg }}
         run: |
           gh release view "$TAG" >/dev/null 2>&1 && exit 0
           gh release create "$TAG" "$DMG" \
@@ -246,7 +289,7 @@ jobs:
             --title "aI'm Thinking ${TAG#v}" \
             --notes-file "$RUNNER_TEMP/notes.md"
 
-      # --wait covers App Store Connect processing, which usually takes 5-30 minutes.
+      # Return after upload; Ubuntu waits for App Store Connect processing.
       - name: Upload App Store package
         timeout-minutes: 30
         env:
@@ -255,19 +298,48 @@ jobs:
         run: |
           # altool reads AuthKey_<id>.p8 from API_PRIVATE_KEYS_DIR.
           API_PRIVATE_KEYS_DIR="$(dirname "$ASC_KEY_P8")" \
-            xcrun altool --upload-package "$MAS_PKG" --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID" --wait
+            xcrun altool --upload-package "$MAS_PKG" --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID"
 
-      # Polls for the build (up to 10 min) and for a review cancellation (up to 10 min).
-      - name: Submit to App Store review
-        timeout-minutes: 25
+      - name: Remove signing files
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
+          rm -rf "$RUNNER_TEMP/keys"
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/mas.p12" "$RUNNER_TEMP/mas.provisionprofile"
+
+  submit:
+    needs: [check, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes-${{ github.run_number }}
+          path: ${{ runner.temp }}
+      - name: Prepare upload API key
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        run: scripts/appstore-release.sh "${{ steps.meta.outputs.version }}" "$MAS_BUILD_NUMBER" "$RUNNER_TEMP/notes.md"
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_P8=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+
+      # Polls for processing (up to 30 min) and review cancellation (up to 10 min).
+      - name: Submit to App Store review
+        timeout-minutes: 42
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_BUILD_POLL_ATTEMPTS: 90
+        run: scripts/appstore-release.sh "${{ needs.check.outputs.version }}" "${{ needs.release.outputs.build_number }}" "$RUNNER_TEMP/notes.md"
 
       - name: Sync changelog to main
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION: ${{ needs.check.outputs.version }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -278,3 +350,7 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "chore: v${VERSION} の CHANGELOG を反映 [skip ci]"
           git push origin main
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"

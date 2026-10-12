@@ -38,6 +38,8 @@ App Storeへの提出を伴うので、通常はClaude Code / Codexの `appstore
 
 ## 3. Release pipeline
 
+`check`（Ubuntu）でバージョン・必須Secret・CHANGELOG・App Storeの状態を確認し、リリースノートをartifactへ保存します。成功した場合だけ `release`（macOS）を起動してテスト・ビルド・署名・公証・アップロードを行い、`submit`（Ubuntu）でAppleのビルド処理完了を最大30分待って審査へ提出します。API認証にはPython 3とOpenSSLを使い、長い待機中はトークンを更新します。
+
 1. Swift 6.4 toolchain確認
 2. Rust tests / Clippy
 3. Swift tests
@@ -184,6 +186,7 @@ spctl -a -t open --context context:primary-signature -vv aIm-Thinking-0.1.0.dmg
 
 - GitHub Releaseは既存の `vX.Y.Z` を残し、`vX.Y.Z+1`、`+2` … と採番して新しく作る（DMG名とアプリのバージョンは `X.Y.Z` のまま）
 - 失敗したworkflowのRe-runなど、同じコミットのReleaseがすでにある場合は採番せずそのReleaseを使い、App Storeへの提出だけをやり直す
+- `submit` だけが失敗した場合は、そのジョブだけを再実行すると `release` の出力に保存したビルド番号とノートartifactを引き継ぐため、macOSでの再ビルド・再アップロードは不要（artifactの保存期間内に限る）
 - ノートと「新機能」はreleaseブランチの `[Unreleased]` 全体（初回分を含む）。修正項目をそこへ追記した場合、`main` の `[X.Y.Z]` 節には自動反映されないので手で追記する
 - `--check` の後、ビルド中に審査が承認されると提出で失敗する（GitHub Releaseは作成済み）。この場合も次のpatch versionで公開する
 - App Storeは審査待ち・審査中なら審査を取り消し、新しいビルドに差し替えて再提出する

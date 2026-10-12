@@ -156,6 +156,8 @@ Pushing a `release/Ver_X.Y.Z` branch runs the Release workflow, which:
 4. Builds the Mac App Store package, uploads it, sets the changelog section as What's New, and submits it for review
 5. Commits the updated `CHANGELOG.md` to `main`
 
+Version checks, changelog preparation, and App Store Connect processing/review submission run on Ubuntu. macOS handles builds, signing, notarization, and upload. Re-running only the failed submission job reuses the uploaded build and saved notes.
+
 ```bash
 git switch -c release/Ver_0.1.0
 git push origin release/Ver_0.1.0
