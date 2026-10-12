@@ -225,7 +225,10 @@ func inactiveAgentCannotRemainColoredDuringTransition() async throws {
                 enabled: true, glow: 1, reducedMotion: false)
     #expect(mood.selection.selected?.agent == .codex)
     #expect(mood.appearance?.agent != .claude)
-    try await Task.sleep(for: .milliseconds(450))
+    let timeout = ContinuousClock.now + .seconds(3)
+    while mood.isAnimating, ContinuousClock.now < timeout {
+        try await Task.sleep(for: .milliseconds(20))
+    }
     #expect(mood.appearance?.agent == .codex)
     #expect(!mood.isAnimating)
     mood.reset()

@@ -115,7 +115,10 @@ func previewStopsEngineWhenIdleButLeavesActivityPlaying() async throws {
     defer { scheduler.stop(); audio.stop() }
     audio.preview()
     #expect(audio.isRunning)
-    try await Task.sleep(for: .seconds(1))
+    let timeout = ContinuousClock.now + .seconds(3)
+    while audio.isRunning, ContinuousClock.now < timeout {
+        try await Task.sleep(for: .milliseconds(20))
+    }
     #expect(!audio.isRunning)
 
     audio.preview { scheduler.isRunning }

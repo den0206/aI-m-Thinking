@@ -60,6 +60,7 @@ func activityAnimationStopsForIdleSilenceAndMonitorShutdown() async throws {
     // Nearly silent rather than muted: mute stops the keycap animation.
     defaults.set(0.01, forKey: "volume")
     let model = AppModel(defaults: defaults, startMonitoring: false)
+    model.setReducedMotion(false)
 
     func activity(_ session: Int, _ phase: String, _ intensity: Double) throws -> CoreMessage {
         let data = try JSONSerialization.data(withJSONObject: [
@@ -224,6 +225,7 @@ func sessionPauseRequiresManualResumeAndLeavesOtherSessionsActive() throws {
     // Nearly silent rather than muted: mute stops the keycap animation.
     defaults.set(0.01, forKey: "volume")
     let model = AppModel(defaults: defaults, startMonitoring: false)
+    model.setReducedMotion(false)
     func activity(_ session: Int, _ agent: String, _ intensity: Double) throws -> CoreMessage {
         let data = try JSONSerialization.data(withJSONObject: [
             "v": 1, "type": "activity", "session": session, "agent": agent,
