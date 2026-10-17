@@ -37,7 +37,9 @@ The Swift toolchain is pinned to `6.4.0` by `.swift-version` at the repository r
 
 ## Install
 
-Download the latest `aIm-Thinking-X.Y.Z.dmg` from GitHub Releases and move `aI'm Thinking.app` to `/Applications`.
+<a href="https://apps.apple.com/us/app/aim-thinking/id6818721943?mt=12"><img src="docs/images/mac-app-store-badge-en-us.svg" height="48" alt="Download on the Mac App Store"></a>
+
+Get it from the Mac App Store, or download the latest `aIm-Thinking-X.Y.Z.dmg` from GitHub Releases and move `aI'm Thinking.app` to `/Applications`.
 
 Builds are distributed from **this repository's own GitHub Releases**; there is no separate release repository.
 

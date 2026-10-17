@@ -37,7 +37,9 @@ Swift toolchain はリポジトリ直下の `.swift-version` で `6.4.0` に固�
 
 ## Install
 
-GitHub Releases から最新の `aIm-Thinking-X.Y.Z.dmg` を取得し、`aI'm Thinking.app` を `/Applications` へ移動します。
+<a href="https://apps.apple.com/us/app/aim-thinking/id6818721943?mt=12"><img src="docs/images/mac-app-store-badge-ja-jp.svg" height="48" alt="Mac App Storeからダウンロード"></a>
+
+Mac App Store から入手するか、GitHub Releases から最新の `aIm-Thinking-X.Y.Z.dmg` を取得し、`aI'm Thinking.app` を `/Applications` へ移動します。
 
 配布は**このリポジトリ自身のGitHub Releases**を使用します。Release専用リポジトリは使いません。
 
