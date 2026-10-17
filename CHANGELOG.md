@@ -14,6 +14,8 @@ The format follows Keep a Changelog conventions and releases use semantic versio
 
 ### Changed
 
+- Release signing and notarization use Xkeys-exported secrets, detect signing identities, and validate the App Store profile before publishing.
+
 - Direct builds can select custom Claude Code / Codex session folders from Agent Folders and reset them to the defaults.
 - Agent folder rows without a folder show the expected path (`~/.claude/projects`, `~/.codex/sessions`).
 - While muted, the menu-bar keycap reads "muted" and stops striking; while any session is paused it reads "paused".

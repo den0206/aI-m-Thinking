@@ -63,66 +63,39 @@ App Storeの初回バージョンは「新機能」を入力できないため�
 
 `.app` を先にnotarize/stapleしてからDMGへ入れます。DMGだけをnotarizeする構成にはしません。
 
-## 4. Required GitHub Secrets
+## 4. XkeysからGitHub Secretsを登録する
 
-| Secret | Purpose |
+Xkeysに `com.den0206.AImThinking` を登録し、Mac App Store用プロファイルを取り込む。Developer ID ApplicationとApp Store ConnectのTeam APIキーはRebornと共有できる。
+
+| Secret | Xkeysで選ぶ値 |
 |---|---|
-| `MACOS_CERT_P12` | Developer ID Application証明書 + private keyを含む `.p12` のbase64 |
-| `MACOS_CERT_PASSWORD` | `.p12` password |
-| `MACOS_SIGN_IDENTITY` | `Developer ID Application: Name (TEAMID)` |
-| `KEYCHAIN_PASSWORD` | CI一時Keychain password |
-| `NOTARY_APPLE_ID` | Apple ID |
-| `NOTARY_TEAM_ID` | Apple Developer Team ID |
-| `NOTARY_PASSWORD` | Apple app-specific password |
-| `MAS_CERT_P12` | Apple Distribution と Mac Installer Distribution の証明書 + private keyをまとめた `.p12` のbase64 |
-| `MAS_CERT_PASSWORD` | 上記 `.p12` password |
-| `MAS_PROVISIONING_PROFILE` | Mac App Store Connect provisioning profileのbase64（2027-10-03 期限切れ） |
-| `ASC_KEY_ID` | App Store Connect API key ID（App Manager権限） |
-| `ASC_ISSUER_ID` | App Store Connect API issuer ID |
-| `ASC_KEY_P8` | API key `.p8` ファイルの中身 |
+| `APPLE_TEAM_ID` | Team ID |
+| `BUILD_CERTIFICATE_BASE64` | Developer ID Application の .p12 |
+| `P12_PASSWORD` | その .p12 の保存済みパスワード |
+| `MAS_CERT_P12` | Apple DistributionとMac Installer Distributionを含む .p12 |
+| `MAS_CERT_PASSWORD` | App Store用 .p12 の保存済みパスワード |
+| `BUILD_PROVISION_PROFILE_BASE64` | このアプリのMac App Store用プロファイル |
+| `ASC_KEY_P8_BASE64` | 公証・アップロード・審査提出用Team APIキーの .p8（App Manager権限） |
+| `ASC_KEY_ID` | Key ID |
+| `ASC_ISSUER_ID` | Issuer ID |
 
-Release workflowはこれらが欠けた状態では公開しません。未署名DMGを誤ってReleaseしないためです。
+「CI 用の Secret ファイルを作成…」で、上記の2つの .p12とプロファイル・APIキーを選ぶ。Developer ID用は既定の変数名を使い、App Store用 .p12は `MAS_CERT_P12`、そのパスワードは `MAS_CERT_PASSWORD` に変更する。複数の .p12を選ぶと既定名が重複するため、書き出し前に変更する。
 
-## 5. Developer ID setup
+生成した.envをこのリポジトリのGitHub Actions Secretsへ登録する。手動登録の場合は値を囲む単一引用符を含めない。登録後は平文の.envを削除し、コミットしない。両方の .p12のパスワードは非空が必要。
 
-### Certificate
+CIは一時キーチェーンのパスワードを生成し、指定TeamのDeveloper ID Application・Apple Distribution・3rd Party Mac Developer Installerをそれぞれ1件だけ検出する。プロファイルのTeam・Bundle ID・期限・署名証明書の一致を検証し、不一致なら公開前に停止する。同じ名前のApple Distributionでも、再発行された証明書は別物なので、新しいものへ切り替える場合はプロファイルもApple Developerで作り直す。
 
-Apple Developer portalで `Developer ID Application` certificateを発行します。
+旧 `MACOS_CERT_P12`・`MACOS_CERT_PASSWORD`・`MACOS_SIGN_IDENTITY`・`KEYCHAIN_PASSWORD`・`NOTARY_APPLE_ID`・`NOTARY_TEAM_ID`・`NOTARY_PASSWORD`・`MAS_PROVISIONING_PROFILE`・`ASC_KEY_P8` は使用しない。新CIの成功を確認してから削除する。`MAS_CERT_P12`・`MAS_CERT_PASSWORD`・`ASC_KEY_ID`・`ASC_ISSUER_ID` は引き続き必要。
 
-Keychain Accessの「自分の証明書」からprivate key込みで `.p12` をexportします。
+## 5. 証明書の準備
 
-base64:
+Developer ID Applicationの .p12はRebornと同じものを利用する。App Store用はApple DistributionとMac Installer Distributionの証明書および対応する秘密鍵を、キーチェーンアクセスからまとめて .p12に書き出し、Xkeysで保管する。.cerだけではCI署名できない。
 
-```bash
-base64 -i DeveloperID.p12 | pbcopy
-```
+CIはDeveloper ID G2とWWDR G3の中間証明書をApple公式サイトから取得する。一時キーチェーンと資格情報ファイルは成功・失敗にかかわらず後処理する。
 
-これを `MACOS_CERT_P12` に設定します。
+## 6. 公証の認証
 
-### Intermediate certificate
-
-`security find-identity -v -p codesigning` で `0 valid identities found` になる場合、Developer ID G2 intermediate certificateが不足していないか確認します。
-
-確認:
-
-```bash
-security find-identity -v -p codesigning
-```
-
-Apple Certificate Authorityから `Developer ID Certification Authority (G2)` を取得してKeychainへimportします。
-
-## 6. Notarization credentials
-
-Apple Accountでapp-specific passwordを発行し、`NOTARY_PASSWORD` に設定します。
-
-ローカル確認ではkeychain profileも使用できます。
-
-```bash
-xcrun notarytool store-credentials im-thinking-notary \
-  --apple-id '<APPLE_ID>' \
-  --team-id '<TEAM_ID>' \
-  --password '<APP_SPECIFIC_PASSWORD>'
-```
+Rebornと同じApp Store ConnectのTeam APIキーを使う。CIはXkeysのbase64出力を復号して .p8を作り、`notarytool --key --key-id --issuer` で公証する。Apple IDやApp用パスワードをCIへ登録する必要はない。既存のApp Storeへのアップロード・審査提出にも同じキーを使う。
 
 ## 7. Local signed build
 
